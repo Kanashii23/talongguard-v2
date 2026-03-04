@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+server/node_modules/
+
+# Environment variables (NEVER upload these)
+server/.env
+.env
+
+# Database file (contains real user data)
+server/talonggaurd.db
+server/*.db
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/

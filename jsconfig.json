@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "checkJs": false
+  },
+  "include": ["frontend/src/**/*"],
+  "exclude": ["node_modules"]
+}
