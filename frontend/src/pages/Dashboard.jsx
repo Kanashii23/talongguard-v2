@@ -64,7 +64,7 @@ function DiseaseFilter({ records, activeFilters, onToggle }) {
   return (
     <div className="flex flex-col gap-1.5">
       {Object.entries(DISEASE_CONFIG).map(([key, cfg]) => {
-        const count = records.filter(r => r.disease === key).length
+        const count = records.reduce((a, r) => a + (parseInt(r[key]) || 0), 0)
         const active = activeFilters.has(key)
         return (
           <button key={key} onClick={() => onToggle(key)}
@@ -125,7 +125,7 @@ function FitBounds({ records }) {
 }
 
 // ── Disease Map ───────────────────────────────────────────────────────
-function DiseaseMap({ records, tileType }) {
+function DiseaseMap({ records, tileType, activeFilters }) {
   const center = records.length > 0
     ? [parseFloat(records[0].lat), parseFloat(records[0].lng)]
     : [15.5785, 120.975]
@@ -136,22 +136,33 @@ function DiseaseMap({ records, tileType }) {
     <MapContainer center={center} zoom={15} className="leaflet-container">
       <TileLayer url={tileUrl} attribution="© OpenStreetMap contributors" />
       <FitBounds records={records} />
-      {records.map(r => {
-        const cfg = DISEASE_CONFIG[r.disease]
-        if (!cfg) return null
-        return (
-          <CircleMarker key={r.id} center={[parseFloat(r.lat), parseFloat(r.lng)]} radius={8}
-            pathOptions={{ fillColor: cfg.color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.85 }}>
-            <Popup>
-              <div className="text-sm p-1">
-                <div className="font-semibold">{cfg.emoji} {cfg.label}</div>
-                <div className="text-gray-400 text-xs mt-1">{r.date}</div>
-                <div className="text-gray-400 text-xs">{r.municipality || "—"}</div>
-                <div className="text-gray-400 text-xs font-mono">{r.lat}, {r.lng}</div>
-              </div>
-            </Popup>
-          </CircleMarker>
-        )
+      {records.flatMap(r => {
+        // One dot per disease per record — only show if disease is in activeFilters
+        const diseases = [
+          { key: 'healthy',  val: parseInt(r.healthy)  || 0 },
+          { key: 'insect',   val: parseInt(r.insect)   || 0 },
+          { key: 'leafspot', val: parseInt(r.leafspot) || 0 },
+          { key: 'mosaic',   val: parseInt(r.mosaic)   || 0 },
+          { key: 'wilt',     val: parseInt(r.wilt)     || 0 },
+        ].filter(d => d.val > 0 && activeFilters.has(d.key))
+
+        return diseases.map(({ key, val }) => {
+          const cfg = DISEASE_CONFIG[key]
+          if (!cfg) return null
+          return (
+            <CircleMarker key={`${r.id}-${key}`} center={[parseFloat(r.lat), parseFloat(r.lng)]} radius={8}
+              pathOptions={{ fillColor: cfg.color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.85 }}>
+              <Popup>
+                <div className="text-sm p-1 min-w-[160px]">
+                  <div className="font-semibold mb-1" style={{ color: cfg.color }}>{cfg.emoji} {cfg.label} × {val}</div>
+                  <div className="text-gray-500 text-xs mb-1">📍 {r.municipality || '—'}</div>
+                  <div className="text-gray-400 text-xs">{r.date}</div>
+                  <div className="text-gray-400 text-xs font-mono mt-1">{r.lat}, {r.lng}</div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        }).filter(Boolean)
       })}
     </MapContainer>
   )
@@ -345,8 +356,8 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }
 
   const filtered = useMemo(() => {
-    let r = records.filter(r => activeFilters.has(r.disease))
-    if (selectedDate) r = r.filter(r => r.date.startsWith(selectedDate))
+    let r = records.filter(r => [...activeFilters].some(k => (parseInt(r[k]) || 0) > 0))
+    if (selectedDate) r = r.filter(r => (r.date || r.scanned_at || '').startsWith(selectedDate))
     return r
   }, [records, activeFilters, selectedDate])
 
@@ -354,7 +365,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     // Group by date + municipality — nearby GPS points in same municipality = one session
     const byKey = {}
     filtered.forEach(r => {
-      const date = r.date.split(' ')[0]
+      const date = (r.date || r.scanned_at || '').split(' ')[0]
       const mun  = r.municipality || 'Unknown'
       const key  = `${date}||${mun}`
       if (!byKey[key]) byKey[key] = []
@@ -374,7 +385,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     return records.filter(r =>
       r.date.startsWith(date) &&
       (r.municipality || 'Unknown') === mun &&
-      activeFilters.has(r.disease)
+      [...activeFilters].some(k => (parseInt(r[k]) || 0) > 0)
     )
   }, [activeMapDate, records, activeFilters])
 
@@ -394,7 +405,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const pieData = useMemo(() => ({
     labels: Object.values(DISEASE_CONFIG).map(c => c.label),
     datasets: [{
-      data: Object.keys(DISEASE_CONFIG).map(k => filtered.filter(r => r.disease === k).length),
+      data: [
+        filtered.reduce((a, r) => a + (parseInt(r.healthy)  || 0), 0),
+        filtered.reduce((a, r) => a + (parseInt(r.insect)   || 0), 0),
+        filtered.reduce((a, r) => a + (parseInt(r.leafspot) || 0), 0),
+        filtered.reduce((a, r) => a + (parseInt(r.mosaic)   || 0), 0),
+        filtered.reduce((a, r) => a + (parseInt(r.mold)     || 0), 0),
+        filtered.reduce((a, r) => a + (parseInt(r.wilt)     || 0), 0),
+      ],
       backgroundColor: Object.values(DISEASE_CONFIG).map(c => c.color),
       borderWidth: 2, borderColor: '#fff'
     }]
@@ -417,7 +435,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     if (timelineFilter === 'all') {
       // Show all diseases as separate lines
       datasets = Object.entries(DISEASE_CONFIG).map(([key, cfg]) => {
-        const data = dates.map(d => filtered.filter(r => r.date.startsWith(d) && r.disease === key).length)
+        const data = dates.map(d => filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[key]) || 0), 0))
         return {
           label: cfg.label,
           data,
@@ -431,7 +449,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     } else {
       // Single disease
       const cfg = DISEASE_CONFIG[timelineFilter]
-      const data = dates.map(d => filtered.filter(r => r.date.startsWith(d) && r.disease === timelineFilter).length)
+      const data = dates.map(d => filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[timelineFilter]) || 0), 0))
       datasets = [{
         label: cfg.label,
         data,
@@ -445,8 +463,8 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
     // Trend: compare last 3 days vs previous 3 days
     const totalByDate = dates.map(d => {
-      if (timelineFilter === 'all') return filtered.filter(r => r.date.startsWith(d)).length
-      return filtered.filter(r => r.date.startsWith(d) && r.disease === timelineFilter).length
+      if (timelineFilter === 'all') return filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r.healthy)||0) + (parseInt(r.insect)||0) + (parseInt(r.leafspot)||0) + (parseInt(r.mosaic)||0) + (parseInt(r.wilt)||0), 0)
+      return filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[timelineFilter]) || 0), 0)
     })
     let trendInfo = { arrow: '→', label: 'Stable', color: 'text-gray-400' }
     if (totalByDate.length >= 2) {
@@ -487,8 +505,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }
 
   const statsRecords = activeSessionBrgy ? tableRecords : filtered
-  const healthy  = statsRecords.filter(r => r.disease === 'healthy').length
-  const diseased = statsRecords.length - healthy
+  // Only count columns that are actively selected in the filter
+  const healthy  = activeFilters.has('healthy')  ? statsRecords.reduce((a, r) => a + (parseInt(r.healthy)  || 0), 0) : 0
+  const insect   = activeFilters.has('insect')   ? statsRecords.reduce((a, r) => a + (parseInt(r.insect)   || 0), 0) : 0
+  const leafspot = activeFilters.has('leafspot') ? statsRecords.reduce((a, r) => a + (parseInt(r.leafspot) || 0), 0) : 0
+  const mosaic   = activeFilters.has('mosaic')   ? statsRecords.reduce((a, r) => a + (parseInt(r.mosaic)   || 0), 0) : 0
+  const wilt     = activeFilters.has('wilt')     ? statsRecords.reduce((a, r) => a + (parseInt(r.wilt)     || 0), 0) : 0
+  const diseased = insect + leafspot + mosaic + wilt
+  const totalSamples = healthy + diseased
 
   const sidebarProps = {
     records, filterScopeRecords, activeFilters,
@@ -558,7 +582,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           {/* Stats cards */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {[
-              { icon: '🌿', val: statsRecords.length, lbl: 'Total Samples',    iconBg: 'bg-green-50' },
+              { icon: '🌿', val: totalSamples,        lbl: 'Total Samples',    iconBg: 'bg-green-50' },
               { icon: '✅', val: healthy,              lbl: 'Healthy Plants',   iconBg: 'bg-green-50', color: 'text-green-600' },
               { icon: '⚠️', val: diseased,             lbl: 'Diseased Samples', iconBg: 'bg-red-50',   color: 'text-red-500' },
             ].map(({ icon, val, lbl, iconBg, color }) => (
@@ -592,8 +616,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 ) : sessions.map(([key, recs, date, municipality]) => {
                   const avgLat     = (recs.reduce((a, r) => a + parseFloat(r.lat), 0) / recs.length).toFixed(4)
                   const avgLng     = (recs.reduce((a, r) => a + parseFloat(r.lng), 0) / recs.length).toFixed(4)
-                  const h          = recs.filter(r => r.disease === 'healthy').length
-                  const diseaseTypes = [...new Set(recs.map(r => r.disease))]
+                  const h = recs.reduce((a, r) => a + (parseInt(r.healthy) || 0), 0)
+                  const d = recs.reduce((a, r) => a + (parseInt(r.insect) || 0) + (parseInt(r.leafspot) || 0) + (parseInt(r.mosaic) || 0) + (parseInt(r.wilt) || 0), 0)
+                  const diseaseTypes = []
+                  if (recs.some(r => parseInt(r.healthy)  > 0)) diseaseTypes.push('healthy')
+                  if (recs.some(r => parseInt(r.insect)   > 0)) diseaseTypes.push('insect')
+                  if (recs.some(r => parseInt(r.leafspot) > 0)) diseaseTypes.push('leafspot')
+                  if (recs.some(r => parseInt(r.mosaic)   > 0)) diseaseTypes.push('mosaic')
+                  if (recs.some(r => parseInt(r.wilt)     > 0)) diseaseTypes.push('wilt')
                   return (
                     <div key={key} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-50 flex items-center justify-center text-base flex-shrink-0">📍</div>
@@ -604,11 +634,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                         <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-1.5 items-center">
                           <span>{date}</span>
                           <span>·</span>
-                          <span>{recs.length} samples</span>
+                          <span>{h + d} samples</span>
                           <span className="hidden sm:inline">·</span>
                           <span className="hidden sm:inline text-green-600">{h} healthy</span>
                           <span className="hidden sm:inline">·</span>
-                          <span className="hidden sm:inline text-red-500">{recs.length - h} diseased</span>
+                          <span className="hidden sm:inline text-red-500">{d} diseased</span>
                         </div>
                         <div className="hidden sm:flex gap-1 items-center mt-1">
                           {diseaseTypes.map(d => (
@@ -641,7 +671,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   </span>
                   <span className="ml-auto text-xs text-gray-400 flex-shrink-0">{mapRecords.length} samples</span>
                 </div>
-                <DiseaseMap records={mapRecords} tileType={tileType} />
+                <DiseaseMap records={mapRecords} tileType={tileType} activeFilters={activeFilters} />
               </div>
             )}
           </div>
@@ -729,7 +759,13 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 </thead>
                 <tbody>
                   {tableRecords.slice().reverse().slice(0, 50).map(r => {
-                    const cfg = DISEASE_CONFIG[r.disease]
+                    const diseaseCounts = [
+                      { key: 'healthy',  count: parseInt(r.healthy)  || 0 },
+                      { key: 'insect',   count: parseInt(r.insect)   || 0 },
+                      { key: 'leafspot', count: parseInt(r.leafspot) || 0 },
+                      { key: 'mosaic',   count: parseInt(r.mosaic)   || 0 },
+                      { key: 'wilt',     count: parseInt(r.wilt)     || 0 },
+                    ].filter(d => d.count > 0)
                     return (
                       <tr key={r.id} className="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
                         <td className="px-4 sm:px-5 py-3 text-gray-600 text-xs sm:text-sm">
@@ -745,11 +781,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lat}</td>
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lng}</td>
                         <td className="px-4 sm:px-5 py-3">
-                          <span className={`inline-flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
-                            <span className="hidden sm:inline">{cfg.label}</span>
-                            <span className="sm:hidden">{cfg.emoji}</span>
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {diseaseCounts.map(({ key, count }) => {
+                              const cfg = DISEASE_CONFIG[key]
+                              return (
+                                <span key={key} className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                                  {cfg.emoji} {count}
+                                </span>
+                              )
+                            })}
+                          </div>
                         </td>
                         {isLoggedIn && (
                           <td className="px-4 sm:px-5 py-3">

@@ -90,10 +90,14 @@ function createTables() {
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     lat          REAL    NOT NULL,
     lng          REAL    NOT NULL,
-    disease      TEXT    NOT NULL,
     municipality TEXT,
     scanned_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-    source       TEXT    DEFAULT 'rover'
+    source       TEXT    DEFAULT 'rover',
+    healthy      INTEGER DEFAULT 0,
+    insect       INTEGER DEFAULT 0,
+    leafspot     INTEGER DEFAULT 0,
+    mosaic       INTEGER DEFAULT 0,
+    wilt         INTEGER DEFAULT 0
   )`)
 }
 

@@ -1,30 +1,23 @@
 /**
  * TalongGuard — Google Sheets Sync Service
- * Runs inside the backend server, polls Google Sheets every 2 minutes.
+ * Reads from a PUBLIC Google Sheet — no credentials needed!
  *
  * Flow:
- *   Raspi rover → raspi_sender.py → Google Sheets (via SIM)
- *                                          ↓
- *                              This service reads the sheet
- *                                          ↓
- *                              Saves new rows to database
- *                                          ↓
- *                                     Dashboard
+ *   Raspi rover → Google Sheets (via SIM) → This service → Database → Dashboard
+ *
+ * One row in sheet = one row in DB (stores raw counts, matches sheet exactly)
  */
 
-const { google } = require('googleapis')
-const cron       = require('node-cron')
-const db         = require('./db')
-const path       = require('path')
-const fs         = require('fs')
+const cron = require('node-cron')
+const db   = require('./db')
 
-// ── Configuration ─────────────────────────────────────────────────────
-const SPREADSHEET_ID  = '1gcT90rgmRczXM8C0sbMY-j_vk3WyvBUvzm5sXV-ygW0'
-const SHEET_NAME      = 'Sheet1'
-const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json')
-const SYNC_INTERVAL   = '*/2 * * * *' // every 2 minutes
+const SPREADSHEET_ID = '1gcT90rgmRczXM8C0sbMY-j_vk3WyvBUvzm5sXV-ygW0'
+const SHEET_NAME     = 'Sheet1'
+const SYNC_INTERVAL  = '*/2 * * * *'
 
-// Google Sheets column order (matches raspi main script output)
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+
+// Column indices matching raspi script output
 const COL_DATETIME     = 0
 const COL_LONGITUDE    = 1
 const COL_LATITUDE     = 2
@@ -34,50 +27,31 @@ const COL_LEAF_SPOT    = 5
 const COL_MOSAIC_VIRUS = 6
 const COL_WILT         = 7
 
-const LABELS = ['Healthy Leaf', 'Insect Pest', 'Leaf Spot', 'Mosaic Virus', 'Wilt']
-const LABEL_COLS = [COL_HEALTHY_LEAF, COL_INSECT_PEST, COL_LEAF_SPOT, COL_MOSAIC_VIRUS, COL_WILT]
-const DISEASE_MAP = {
-  'Healthy Leaf': 'healthy',
-  'Insect Pest':  'insect',
-  'Leaf Spot':    'leafspot',
-  'Mosaic Virus': 'mosaic',
-  'Wilt':         'wilt',
-}
-
-// Track last synced row count to only process new rows
 let lastSyncedRow = 0
-let sheetsClient  = null
 
-// ── Connect to Google Sheets ──────────────────────────────────────────
-function connectSheets() {
-  if (!fs.existsSync(CREDENTIALS_PATH)) {
-    console.log('⚠️  [Sheets Sync] credentials.json not found — sync disabled')
-    console.log('   Place credentials.json in the server folder to enable rover sync')
-    return null
+// ── Parse CSV line properly (handles commas inside quotes) ────────────
+function parseCSVLine(line) {
+  const result = []
+  let current  = ''
+  let inQuotes = false
+  for (const ch of line) {
+    if (ch === '"') { inQuotes = !inQuotes }
+    else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = '' }
+    else { current += ch }
   }
-
-  try {
-    const creds  = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'))
-    const auth   = new google.auth.GoogleAuth({
-      credentials: creds,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    })
-    const sheets = google.sheets({ version: 'v4', auth })
-    console.log('✅ [Sheets Sync] Connected to Google Sheets')
-    return sheets
-  } catch (err) {
-    console.error('❌ [Sheets Sync] Failed to connect:', err.message)
-    return null
-  }
+  result.push(current.trim())
+  return result
 }
 
-// ── Fetch all rows from sheet ─────────────────────────────────────────
-async function fetchRows(sheets) {
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:H`,
-  })
-  return res.data.values || []
+// ── Fetch public sheet as TSV (tab-separated is more reliable than CSV) ──
+async function fetchSheetCSV() {
+  // Use TSV export — avoids comma-in-value issues
+  const tsvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=tsv&sheet=${encodeURIComponent(SHEET_NAME)}`
+  const res    = await fetch(tsvUrl)
+  if (!res.ok) throw new Error(`Failed to fetch sheet: ${res.status}`)
+  const text   = await res.text()
+  // TSV = tab separated, no quoting issues
+  return text.trim().split('\n').map(line => line.split('\t').map(c => c.trim()))
 }
 
 // ── Reverse geocode lat/lng → municipality ────────────────────────────
@@ -95,46 +69,37 @@ async function getMunicipality(lat, lng) {
     const mun  = addr.city || addr.town || addr.municipality || addr.county || 'Nueva Ecija'
     _munCache.set(key, mun)
     return mun
-  } catch {
-    return 'Nueva Ecija'
-  }
+  } catch { return 'Nueva Ecija' }
 }
 
-// ── Parse rows → individual detection records ─────────────────────────
+// ── Parse rows → one DB record per sheet row (raw counts) ─────────────
 async function parseRows(rows) {
   const records = []
-
   for (const row of rows) {
     if (!row || row.length < 8) continue
 
     const rawDt = String(row[COL_DATETIME] || '').trim()
-    if (!rawDt || rawDt === 'N/A' || rawDt.toLowerCase().includes('date')) continue
+    // Skip header or empty rows
+    if (!rawDt || rawDt.toLowerCase().includes('date') || rawDt === 'N/A') continue
 
     const lat = parseFloat(row[COL_LATITUDE])
     const lng = parseFloat(row[COL_LONGITUDE])
-    if (isNaN(lat) || isNaN(lng)) continue
-    if (lat === 0 && lng === 0) continue
+    if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) continue
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) continue
 
-    // Get municipality from cache or Nominatim
+    const healthy  = parseInt(row[COL_HEALTHY_LEAF] || 0) || 0
+    const insect   = parseInt(row[COL_INSECT_PEST]  || 0) || 0
+    const leafspot = parseInt(row[COL_LEAF_SPOT]    || 0) || 0
+    const mosaic   = parseInt(row[COL_MOSAIC_VIRUS] || 0) || 0
+    const wilt     = parseInt(row[COL_WILT]         || 0) || 0
+
+    // Skip rows where all counts are 0
+    if (healthy + insect + leafspot + mosaic + wilt === 0) continue
+
     const municipality = await getMunicipality(lat, lng)
 
-    for (let i = 0; i < LABELS.length; i++) {
-      const count = parseInt(String(row[LABEL_COLS[i]] || '0').trim()) || 0
-      if (count <= 0) continue
-
-      for (let j = 0; j < count; j++) {
-        records.push({
-          lat,
-          lng,
-          disease:      DISEASE_MAP[LABELS[i]],
-          municipality,
-          scanned_at:   rawDt,
-        })
-      }
-    }
+    records.push({ lat, lng, municipality, scanned_at: rawDt, healthy, insect, leafspot, mosaic, wilt })
   }
-
   return records
 }
 
@@ -143,9 +108,9 @@ function saveRecords(records) {
   let inserted = 0
   for (const r of records) {
     db.run(
-      `INSERT INTO scan_records (lat, lng, disease, municipality, scanned_at, source)
-       VALUES (?, ?, ?, ?, ?, 'rover')`,
-      [r.lat, r.lng, r.disease, r.municipality, r.scanned_at]
+      `INSERT INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt)
+       VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?)`,
+      [r.lat, r.lng, r.municipality, r.scanned_at, r.healthy, r.insect, r.leafspot, r.mosaic, r.wilt]
     )
     inserted++
   }
@@ -153,48 +118,33 @@ function saveRecords(records) {
   return inserted
 }
 
-// ── Main sync function ────────────────────────────────────────────────
+// ── Main sync ─────────────────────────────────────────────────────────
 async function syncSheets() {
-  if (!sheetsClient) return
-
   try {
-    const allRows  = await fetchRows(sheetsClient)
-    // Skip header row if present
-    const hasHeader = allRows[0] && allRows[0].some(c => String(c).toLowerCase().includes('lat'))
-    const dataRows  = hasHeader ? allRows.slice(1) : allRows
-    const newRows   = dataRows.slice(lastSyncedRow)
+    const allRows  = await fetchSheetCSV()
+    const dataRows = allRows.slice(1) // skip header
+    const newRows  = dataRows.slice(lastSyncedRow)
 
     if (newRows.length === 0) {
       console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] No new rows`)
       return
     }
 
-    console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] 📡 ${newRows.length} new row(s) from rover`)
-
-    const records = await parseRows(newRows)
-    console.log(`[Sheets Sync] Expanded to ${records.length} detection records`)
-
+    console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] 📡 ${newRows.length} new row(s)`)
+    const records  = await parseRows(newRows)
     const inserted = saveRecords(records)
-    console.log(`[Sheets Sync] ✅ Saved ${inserted} records to database`)
-
+    console.log(`[Sheets Sync] ✅ Saved ${inserted} rows to database`)
     lastSyncedRow += newRows.length
 
   } catch (err) {
-    console.error('[Sheets Sync] ❌ Sync error:', err.message)
+    console.error('[Sheets Sync] ❌ Error:', err.message)
   }
 }
 
-// ── Start the sync service ────────────────────────────────────────────
 function startSheetsSync() {
-  sheetsClient = connectSheets()
-  if (!sheetsClient) return
-
-  // Run once immediately on startup
+  console.log('✅ [Sheets Sync] Starting — polling Google Sheet every 2 minutes')
   syncSheets()
-
-  // Then every 2 minutes
   cron.schedule(SYNC_INTERVAL, syncSheets)
-  console.log(`✅ [Sheets Sync] Polling Google Sheets every 2 minutes`)
 }
 
 module.exports = { startSheetsSync }

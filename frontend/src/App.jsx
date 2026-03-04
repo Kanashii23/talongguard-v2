@@ -27,9 +27,9 @@ export default function App() {
   const isLoggedIn = !!currentUser
   const isAdmin    = currentUser?.role === 'admin'
 
-  // Fetch real scan records from backend when logged in
+  // Fetch scan records on load — public, no login required
   useEffect(() => {
-    if (!currentUser || scansLoaded) return
+    if (scansLoaded) return
     api.getScans()
       .then(data => {
         if (data && data.length > 0) {
@@ -37,9 +37,15 @@ export default function App() {
           setScansLoaded(true)
         }
       })
-      .catch(() => {
-        // Not logged in or no records yet — keep sample data
-      })
+      .catch(() => {})
+  }, []) // eslint-disable-line
+
+  // Re-fetch when user logs in to get latest data
+  useEffect(() => {
+    if (!currentUser) return
+    api.getScans()
+      .then(data => { if (data && data.length > 0) setRecords(data) })
+      .catch(() => {})
   }, [currentUser]) // eslint-disable-line
 
   function showToast(msg, type = 'success') {
