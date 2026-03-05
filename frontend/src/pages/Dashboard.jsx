@@ -185,20 +185,54 @@ const _geoCache = new Map([
   ['15.42,120.84', 'Cabanatuan City'],
 ])
 
+const OPENCAGE_API_KEY = '1f23d0ee06aa411dbe030f586218d272'
+
+const MUNICIPALITY_BOUNDS = [
+  { name: 'Cabanatuan City',       latMin: 15.45, latMax: 15.52, lngMin: 120.93, lngMax: 121.01 },
+  { name: 'Science City of Munoz', latMin: 15.69, latMax: 15.75, lngMin: 120.87, lngMax: 120.94 },
+  { name: 'Talavera',              latMin: 15.54, latMax: 15.62, lngMin: 120.88, lngMax: 120.95 },
+  { name: 'San Jose City',         latMin: 15.76, latMax: 15.82, lngMin: 120.96, lngMax: 121.02 },
+  { name: 'San Isidro',            latMin: 15.41, latMax: 15.46, lngMin: 120.83, lngMax: 120.90 },
+  { name: 'Aliaga',                latMin: 15.63, latMax: 15.70, lngMin: 120.80, lngMax: 120.87 },
+  { name: 'Cuyapo',                latMin: 15.76, latMax: 15.81, lngMin: 120.63, lngMax: 120.70 },
+  { name: 'Guimba',                latMin: 15.63, latMax: 15.70, lngMin: 120.74, lngMax: 120.80 },
+  { name: 'Lupao',                 latMin: 15.82, latMax: 15.88, lngMin: 120.88, lngMax: 120.95 },
+  { name: 'Gapan City',            latMin: 15.30, latMax: 15.36, lngMin: 120.93, lngMax: 121.00 },
+]
+
+function getMunFromBounds(lat, lng) {
+  const flat = parseFloat(lat), flng = parseFloat(lng)
+  for (const m of MUNICIPALITY_BOUNDS) {
+    if (flat >= m.latMin && flat <= m.latMax && flng >= m.lngMin && flng <= m.lngMax) return m.name
+  }
+  return null
+}
+
 async function fetchMunicipality(lat, lng) {
-  // Round to 2 decimals to group nearby points (saves API calls)
-  const key = `${parseFloat(lat).toFixed(2)},${parseFloat(lng).toFixed(2)}`
+  const key = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`
   if (_geoCache.has(key)) return _geoCache.get(key)
+
+  // Instant bounds lookup first
+  const fromBounds = getMunFromBounds(lat, lng)
+  if (fromBounds) { _geoCache.set(key, fromBounds); return fromBounds }
+
   try {
-    const r    = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
-      { headers: { 'User-Agent': 'TalongGuard-Thesis/1.0' } }
-    )
-    const d    = await r.json()
-    const addr = d.address || {}
-    const mun  = addr.city || addr.town || addr.municipality || addr.county || 'Nueva Ecija'
-    _geoCache.set(key, mun)
-    return mun
+    const query = encodeURIComponent(`${lat},${lng}`)
+    const url   = `https://api.opencagedata.com/geocode/v1/json?key=${OPENCAGE_API_KEY}&q=${query}&no_annotations=1&language=en`
+    const r     = await fetch(url)
+    const d     = await r.json()
+    if (d.results && d.results.length > 0) {
+      const comp = d.results[0].components
+      let mun    = comp.city        ||
+                   comp.town        ||
+                   comp.municipality||
+                   comp.county      ||
+                   comp.state_district || 'Nueva Ecija'
+      mun = mun.replace(/^(City of |Municipality of )/i, '').trim()
+      _geoCache.set(key, mun)
+      return mun
+    }
+    return 'Nueva Ecija'
   } catch { return 'Nueva Ecija' }
 }
 
@@ -365,6 +399,8 @@ function RecordModal({ record, onSave, onClose }) {
 // ── Dashboard Page ────────────────────────────────────────────────────
 export default function Dashboard({ records, setRecords, isLoggedIn, showToast }) {
   const [activeFilters, setActiveFilters] = useState(new Set(Object.keys(DISEASE_CONFIG)))
+  const [pageSize, setPageSize]             = useState(50)
+  const [currentPage, setCurrentPage]       = useState(1)
   const [selectedDate, setSelectedDate] = useState(null)
   const [tileType, setTileType] = useState('streets')
   const [activeMapDate, setActiveMapDate] = useState(null)
@@ -406,11 +442,18 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, [records, activeFilters, selectedDate])
 
   const sessions = useMemo(() => {
-    // Group by date + municipality — nearby GPS points in same municipality = one session
+    // Normalize municipality — treat null/Unknown/Nueva Ecija variants as same
+    const normMun = (r) => {
+      const m = (r.municipality || '').trim()
+      if (!m || m === 'Unknown' || m === '') return 'Nueva Ecija'
+      return m.replace(/^(City of |Municipality of )/i, '').trim()
+    }
+
+    // Group by date + normalized municipality
     const byKey = {}
     filtered.forEach(r => {
       const date = (r.date || r.scanned_at || '').split(' ')[0]
-      const mun  = r.municipality || 'Unknown'
+      const mun  = normMun(r)
       const key  = `${date}||${mun}`
       if (!byKey[key]) byKey[key] = []
       byKey[key].push(r)
@@ -435,6 +478,8 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   const activeSessionBrgy = activeMapDate ? activeMapDate.split('||')[1] || 'Selected Session' : null
   const activeSessionDate = activeMapDate ? activeMapDate.split('||')[0] : null
+
+  useEffect(() => { setCurrentPage(1) }, [activeSessionBrgy, activeMapDate, selectedDate]) // eslint-disable-line
 
   const tableRecords = useMemo(() => {
     if (!activeSessionBrgy || !activeMapDate) return filtered
@@ -820,9 +865,19 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   <p className="text-xs text-forest-600 mt-0.5">Filtered: {activeSessionBrgy} · {activeSessionDate}</p>
                 )}
               </div>
-              <span className="text-xs text-gray-400 flex-shrink-0">
-                {Math.min(tableRecords.length, 50)} of {tableRecords.length}
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-xs text-gray-400">
+                  {Math.min(currentPage * pageSize, tableRecords.length)} of {tableRecords.length}
+                </span>
+                <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-gray-50 focus:outline-none focus:border-forest-400">
+                  <option value={20}>20 / page</option>
+                  <option value={30}>30 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                  <option value={99999}>All</option>
+                </select>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -837,7 +892,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   </tr>
                 </thead>
                 <tbody>
-                  {tableRecords.slice().reverse().slice(0, 50).map(r => {
+                  {tableRecords.slice().reverse().slice((currentPage - 1) * pageSize, currentPage * pageSize).map(r => {
                     const diseaseCounts = [
                       { key: 'healthy',  count: parseInt(r.healthy)  || 0 },
                       { key: 'insect',   count: parseInt(r.insect)   || 0 },
@@ -887,6 +942,25 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination controls */}
+            {tableRecords.length > pageSize && (
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-gray-100">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  ← Prev
+                </button>
+                <span className="text-xs text-gray-500">
+                  Page {currentPage} of {Math.ceil(tableRecords.length / pageSize)}
+                </span>
+                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(tableRecords.length / pageSize), p + 1))}
+                  disabled={currentPage >= Math.ceil(tableRecords.length / pageSize)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
 
         </main>

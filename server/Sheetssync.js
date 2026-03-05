@@ -64,23 +64,76 @@ async function fetchSheetCSV() {
   return text.trim().split('\n').map(line => line.split('\t').map(c => c.trim()))
 }
 
-// ── Reverse geocode lat/lng → municipality ────────────────────────────
+// ── Pre-seeded municipality bounds for Nueva Ecija ───────────────────
+const MUNICIPALITY_BOUNDS = [
+  { name: 'Cabanatuan City',       latMin: 15.45, latMax: 15.52, lngMin: 120.93, lngMax: 121.01 },
+  { name: 'Science City of Munoz', latMin: 15.69, latMax: 15.75, lngMin: 120.87, lngMax: 120.94 },
+  { name: 'Talavera',              latMin: 15.54, latMax: 15.62, lngMin: 120.88, lngMax: 120.95 },
+  { name: 'San Jose City',         latMin: 15.76, latMax: 15.82, lngMin: 120.96, lngMax: 121.02 },
+  { name: 'San Isidro',            latMin: 15.41, latMax: 15.46, lngMin: 120.83, lngMax: 120.90 },
+  { name: 'Aliaga',                latMin: 15.63, latMax: 15.70, lngMin: 120.80, lngMax: 120.87 },
+  { name: 'Cuyapo',                latMin: 15.76, latMax: 15.81, lngMin: 120.63, lngMax: 120.70 },
+  { name: 'Guimba',                latMin: 15.63, latMax: 15.70, lngMin: 120.74, lngMax: 120.80 },
+  { name: 'Lupao',                 latMin: 15.82, latMax: 15.88, lngMin: 120.88, lngMax: 120.95 },
+  { name: 'Gapan City',            latMin: 15.30, latMax: 15.36, lngMin: 120.93, lngMax: 121.00 },
+]
+
+function getMunicipalityFromBounds(lat, lng) {
+  const flat = parseFloat(lat), flng = parseFloat(lng)
+  for (const m of MUNICIPALITY_BOUNDS) {
+    if (flat >= m.latMin && flat <= m.latMax && flng >= m.lngMin && flng <= m.lngMax) {
+      return m.name
+    }
+  }
+  return null
+}
+
+// ── Reverse geocode lat/lng → municipality via OpenCage ──────────────
 const _munCache = new Map()
 async function getMunicipality(lat, lng) {
-  const key = `${parseFloat(lat).toFixed(2)},${parseFloat(lng).toFixed(2)}`
+  const key = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`
   if (_munCache.has(key)) return _munCache.get(key)
+
+  // Try bounds first — instant, no API call needed
+  const fromBounds = getMunicipalityFromBounds(lat, lng)
+  if (fromBounds) {
+    _munCache.set(key, fromBounds)
+    return fromBounds
+  }
+
   try {
-    const res  = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
-      { headers: { 'User-Agent': 'TalongGuard-Thesis/1.0' } }
-    )
-    const data = await res.json()
-    const addr = data.address || {}
-    const mun  = addr.city || addr.town || addr.municipality || addr.county || 'Nueva Ecija'
-    _munCache.set(key, mun)
-    return mun
-  } catch { return 'Nueva Ecija' }
+    const apiKey = process.env.OPENCAGE_API_KEY
+    const query  = encodeURIComponent(`${lat},${lng}`)
+    const url    = `https://api.opencagedata.com/geocode/v1/json?key=${apiKey}&q=${query}&no_annotations=1&language=en`
+    const res    = await fetch(url)
+    const data   = await res.json()
+
+    if (data.status && data.status.code !== 200) {
+      console.error('[Geocode] API error:', data.status.message)
+      return 'Nueva Ecija'
+    }
+
+    if (data.results && data.results.length > 0) {
+      const comp = data.results[0].components
+      // Philippines admin levels: city/town → municipality → county → state_district
+      let mun = comp.city        ||
+                comp.town        ||
+                comp.municipality||
+                comp.county      ||
+                comp.state_district || 'Nueva Ecija'
+      // Clean up prefixes
+      mun = mun.replace(/^(City of |Municipality of )/i, '').trim()
+      console.log(`[Geocode] ✅ ${lat},${lng} → ${mun}`)
+      _munCache.set(key, mun)
+      return mun
+    }
+    return 'Nueva Ecija'
+  } catch (e) {
+    console.error('[Geocode] Error:', e.message)
+    return 'Nueva Ecija'
+  }
 }
+
 
 // ── Parse rows → one DB record per sheet row (raw counts) ─────────────
 // Municipality geocoding happens AFTER saving — doesn't block sync
