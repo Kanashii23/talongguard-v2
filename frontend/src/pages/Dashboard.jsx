@@ -400,7 +400,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     // Normalize municipality — treat null/Unknown/Nueva Ecija variants as same
     const normMun = (r) => {
       const m = (r.municipality || '').trim()
-      if (!m || m === 'Unknown' || m === '') return 'Nueva Ecija'
+      if (!m || m === 'Unknown' || m === '') return '⏳ Pending'
       return m.replace(/^(City of |Municipality of )/i, '').trim()
     }
 

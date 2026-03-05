@@ -84,7 +84,6 @@ async function getMunicipality(lat, lng) {
 
     if (data.results && data.results.length > 0) {
       const comp = data.results[0].components
-      // Get municipality/city level — not barangay or street
       const mun  = comp.city        ||
                    comp.town        ||
                    comp.municipality||
