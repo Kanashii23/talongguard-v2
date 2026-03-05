@@ -230,14 +230,22 @@ async function resolveAllMunicipalities(records, setRecords) {
 
 // ── Record Modal ──────────────────────────────────────────────────────
 function RecordModal({ record, onSave, onClose }) {
-  const [form, setForm]           = useState(record
-    ? { date: record.date.replace(' ', 'T'), lat: record.lat, lng: record.lng, disease: record.disease }
-    : { date: '', lat: '', lng: '', disease: 'healthy' })
-  const [munLoading, setMunLoading] = useState(false)
+  const [form, setForm] = useState({
+    date:     (record?.date || '').replace(' ', 'T'),
+    lat:      record?.lat  || '',
+    lng:      record?.lng  || '',
+    healthy:  parseInt(record?.healthy)  || 0,
+    insect:   parseInt(record?.insect)   || 0,
+    leafspot: parseInt(record?.leafspot) || 0,
+    mosaic:   parseInt(record?.mosaic)   || 0,
+    wilt:     parseInt(record?.wilt)     || 0,
+  })
+  const [munLoading, setMunLoading]     = useState(false)
   const [municipality, setMunicipality] = useState(record?.municipality || '')
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const setInt = (k, v) => setForm(f => ({ ...f, [k]: Math.max(0, parseInt(v) || 0) }))
 
-  // Auto-fetch municipality when lat/lng changes (debounced 700ms)
+  // Auto-fetch municipality when lat/lng changes
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lng = parseFloat(form.lng)
@@ -255,22 +263,34 @@ function RecordModal({ record, onSave, onClose }) {
     if (!form.date || !form.lat || !form.lng) return
     onSave({
       ...form,
-      date: form.date.replace('T', ' '),
+      date:         form.date.replace('T', ' '),
       municipality: municipality || record?.municipality || 'Nueva Ecija',
     })
   }
 
+  const DISEASE_FIELDS = [
+    { key: 'healthy',  label: 'Healthy Leaf',       emoji: '🌱', color: 'text-green-600',  border: 'border-green-200',  bg: 'bg-green-50'  },
+    { key: 'insect',   label: 'Insect Pest',         emoji: '🐛', color: 'text-red-600',    border: 'border-red-200',    bg: 'bg-red-50'    },
+    { key: 'leafspot', label: 'Leaf Spot Disease',   emoji: '🟠', color: 'text-orange-600', border: 'border-orange-200', bg: 'bg-orange-50' },
+    { key: 'mosaic',   label: 'Mosaic Virus',        emoji: '🟡', color: 'text-yellow-600', border: 'border-yellow-200', bg: 'bg-yellow-50' },
+    { key: 'wilt',     label: 'Wilt Disease',        emoji: '🟣', color: 'text-purple-600', border: 'border-purple-200', bg: 'bg-purple-50' },
+  ]
+
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-md shadow-2xl animate-fade-up">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-md shadow-2xl animate-fade-up max-h-[90vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
         <h3 className="font-display text-xl font-bold text-gray-900 mb-6">Edit Record</h3>
         <div className="space-y-4">
+
+          {/* Date & Time */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Date & Time</label>
             <input type="datetime-local" value={form.date} onChange={e => set('date', e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 transition" />
           </div>
+
+          {/* Lat / Lng */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Latitude</label>
@@ -284,7 +304,7 @@ function RecordModal({ record, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Auto-detected municipality */}
+          {/* Municipality */}
           <div className={`rounded-xl px-4 py-3 border text-sm ${munLoading ? 'bg-blue-50 border-blue-100' : municipality ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">📍 Municipality</p>
             {munLoading ? (
@@ -295,19 +315,34 @@ function RecordModal({ record, onSave, onClose }) {
             ) : municipality ? (
               <p className="font-semibold text-gray-800 text-sm">{municipality}</p>
             ) : (
-              <p className="text-gray-400 text-xs">Enter coordinates to detect municipality</p>
+              <p className="text-gray-400 text-xs">Enter coordinates to detect</p>
             )}
           </div>
 
+          {/* Disease Counts */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Detected Disease</label>
-            <select value={form.disease} onChange={e => set('disease', e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 transition">
-              {Object.entries(DISEASE_CONFIG).map(([k, v]) => (
-                <option key={k} value={k}>{v.emoji} {v.label}</option>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Detection Counts</label>
+            <div className="space-y-2">
+              {DISEASE_FIELDS.map(({ key, label, emoji, color, border, bg }) => (
+                <div key={key} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${border} ${bg}`}>
+                  <span className="text-base">{emoji}</span>
+                  <span className={`flex-1 text-sm font-medium ${color}`}>{label}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setInt(key, form[key] - 1)}
+                      className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition flex items-center justify-center">−</button>
+                    <input type="number" min="0" value={form[key]} onChange={e => setInt(key, e.target.value)}
+                      className={`w-14 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold ${color} bg-white focus:outline-none focus:border-forest-400`} />
+                    <button onClick={() => setInt(key, form[key] + 1)}
+                      className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition flex items-center justify-center">+</button>
+                  </div>
+                </div>
               ))}
-            </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-right">
+              Total: <span className="font-bold text-gray-600">{Object.values({healthy: form.healthy, insect: form.insect, leafspot: form.leafspot, mosaic: form.mosaic, wilt: form.wilt}).reduce((a, b) => a + b, 0)}</span> detections
+            </p>
           </div>
+
         </div>
         <div className="flex gap-3 mt-7">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
@@ -486,14 +521,33 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     }
   }, [filtered, timelineFilter])
 
-  function handleSaveRecord(form) {
+  async function handleSaveRecord(form) {
     if (editingId) {
-      setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...form } : r))
-      showToast('✅ Record updated')
-    } else {
-      const newId = Math.max(...records.map(r => r.id)) + 1
-      setRecords(prev => [...prev, { id: newId, ...form, barangay: 'Custom', municipality: 'Nueva Ecija' }])
-      showToast('✅ Record added')
+      try {
+        await api.updateScan(editingId, {
+          scanned_at:   form.date,
+          lat:          form.lat,
+          lng:          form.lng,
+          municipality: form.municipality,
+          healthy:      form.healthy,
+          insect:       form.insect,
+          leafspot:     form.leafspot,
+          mosaic:       form.mosaic,
+          wilt:         form.wilt,
+        })
+        // Update local state immediately so UI reflects change
+        setRecords(prev => prev.map(r => r.id === editingId
+          ? { ...r, date: form.date, lat: form.lat, lng: form.lng,
+              municipality: form.municipality,
+              healthy: form.healthy, insect: form.insect,
+              leafspot: form.leafspot, mosaic: form.mosaic, wilt: form.wilt,
+              is_edited: 1 }
+          : r
+        ))
+        showToast('✅ Record updated')
+      } catch {
+        showToast('❌ Failed to update record', 'error')
+      }
     }
     setModalData(null); setEditingId(null)
   }

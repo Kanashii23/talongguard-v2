@@ -134,16 +134,25 @@ async function geocodePendingRecords() {
 
 // ── Save records to database ──────────────────────────────────────────
 function saveRecords(records) {
+  // Get all manually edited records — these must never be overwritten by sync
+  const editedRows = db.all(`SELECT lat, lng, scanned_at FROM scan_records WHERE is_edited = 1`)
+  const editedKeys = new Set(editedRows.map(r => `${r.lat},${r.lng},${r.scanned_at}`))
+
   let inserted = 0
+  let skipped  = 0
   for (const r of records) {
+    const key = `${r.lat},${r.lng},${r.scanned_at}`
+    // Skip records that were manually edited — preserve user changes
+    if (editedKeys.has(key)) { skipped++; continue }
     db.run(
-      `INSERT OR IGNORE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt)
-       VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt, is_edited)
+       VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?, 0)`,
       [r.lat, r.lng, r.municipality, r.scanned_at, r.healthy, r.insect, r.leafspot, r.mosaic, r.wilt]
     )
     inserted++
   }
   if (inserted > 0) db.save()
+  if (skipped > 0) console.log(`[Sheets Sync] 🔒 Skipped ${skipped} manually edited records`)
   return inserted
 }
 
@@ -176,8 +185,8 @@ async function syncSheets() {
       return
     }
 
-    // Clear and re-sync — sheet is always the source of truth
-    db.run('DELETE FROM scan_records')
+    // Only delete non-edited records — preserve manual edits
+    db.run('DELETE FROM scan_records WHERE is_edited = 0')
     db.save()
     const inserted = saveRecords(records)
     console.log(`[Sheets Sync] ✅ Synced ${inserted} rows — matches sheet exactly`)
