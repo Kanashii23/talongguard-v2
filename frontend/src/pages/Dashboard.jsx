@@ -192,7 +192,7 @@ const MUNICIPALITY_BOUNDS = [
   { name: 'Science City of Munoz', latMin: 15.68, latMax: 15.76, lngMin: 120.86, lngMax: 120.95 },
   { name: 'Talavera',              latMin: 15.53, latMax: 15.63, lngMin: 120.87, lngMax: 120.96 },
   { name: 'San Jose City',         latMin: 15.75, latMax: 15.83, lngMin: 120.95, lngMax: 121.03 },
-  { name: 'San Isidro',            latMin: 15.40, latMax: 15.47, lngMin: 120.82, lngMax: 120.91 },
+  { name: 'Sta. Rosa',             latMin: 15.40, latMax: 15.47, lngMin: 120.82, lngMax: 120.91 },
   { name: 'Aliaga',                latMin: 15.62, latMax: 15.71, lngMin: 120.79, lngMax: 120.89 },
   { name: 'Cuyapo',                latMin: 15.75, latMax: 15.82, lngMin: 120.62, lngMax: 120.71 },
   { name: 'Guimba',                latMin: 15.62, latMax: 15.73, lngMin: 120.73, lngMax: 120.81 },
