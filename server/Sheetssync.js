@@ -64,82 +64,42 @@ async function fetchSheetCSV() {
   return text.trim().split('\n').map(line => line.split('\t').map(c => c.trim()))
 }
 
-// ── Pre-seeded municipality bounds for Nueva Ecija ───────────────────
-const MUNICIPALITY_BOUNDS = [
-  { name: 'Cabanatuan City',       latMin: 15.44, latMax: 15.53, lngMin: 120.92, lngMax: 121.02 },
-  { name: 'Science City of Munoz', latMin: 15.68, latMax: 15.76, lngMin: 120.86, lngMax: 120.95 },
-  { name: 'Talavera',              latMin: 15.53, latMax: 15.63, lngMin: 120.87, lngMax: 120.96 },
-  { name: 'San Jose City',         latMin: 15.75, latMax: 15.83, lngMin: 120.95, lngMax: 121.03 },
-  { name: 'Sta. Rosa',             latMin: 15.40, latMax: 15.47, lngMin: 120.82, lngMax: 120.91 },
-  { name: 'Aliaga',                latMin: 15.62, latMax: 15.71, lngMin: 120.79, lngMax: 120.89 },
-  { name: 'Cuyapo',                latMin: 15.75, latMax: 15.82, lngMin: 120.62, lngMax: 120.71 },
-  { name: 'Guimba',                latMin: 15.62, latMax: 15.73, lngMin: 120.73, lngMax: 120.81 },
-  { name: 'Lupao',                 latMin: 15.81, latMax: 15.89, lngMin: 120.87, lngMax: 120.96 },
-  { name: 'Gapan City',            latMin: 15.29, latMax: 15.37, lngMin: 120.92, lngMax: 121.01 },
-  { name: 'Zaragoza',              latMin: 15.49, latMax: 15.56, lngMin: 120.84, lngMax: 120.91 },
-  { name: 'Llanera',               latMin: 15.67, latMax: 15.74, lngMin: 120.73, lngMax: 120.80 },
-  { name: 'Rizal',                 latMin: 15.72, latMax: 15.78, lngMin: 120.74, lngMax: 120.81 },
-  { name: 'Nampicuan',             latMin: 15.67, latMax: 15.73, lngMin: 120.68, lngMax: 120.75 },
-  { name: 'Sto. Domingo',          latMin: 15.52, latMax: 15.60, lngMin: 120.83, lngMax: 120.89 },
-]
-
-function getMunicipalityFromBounds(lat, lng) {
-  const flat = parseFloat(lat), flng = parseFloat(lng)
-  for (const m of MUNICIPALITY_BOUNDS) {
-    if (flat >= m.latMin && flat <= m.latMax && flng >= m.lngMin && flng <= m.lngMax) {
-      return m.name
-    }
-  }
-  return null
-}
-
-// ── Reverse geocode lat/lng → municipality via OpenCage ──────────────
+// ── Reverse geocode lat/lng → municipality via OpenCage ─────────────
 const _munCache = new Map()
+
 async function getMunicipality(lat, lng) {
-  const key = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`
+  const key = `${parseFloat(lat).toFixed(4)},${parseFloat(lng).toFixed(4)}`
   if (_munCache.has(key)) return _munCache.get(key)
-
-  // Try bounds first — instant, no API call needed
-  const fromBounds = getMunicipalityFromBounds(lat, lng)
-  if (fromBounds) {
-    _munCache.set(key, fromBounds)
-    return fromBounds
-  }
-
   try {
     const apiKey = process.env.OPENCAGE_API_KEY
-    const query  = encodeURIComponent(`${lat},${lng}`)
-    const url    = `https://api.opencagedata.com/geocode/v1/json?key=${apiKey}&q=${query}&no_annotations=1&language=en`
+    const query  = `${lat},+${lng}`
+    const url    = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${apiKey}&language=en&no_annotations=1`
     const res    = await fetch(url)
     const data   = await res.json()
 
     if (data.status && data.status.code !== 200) {
-      console.error('[Geocode] API error:', data.status.message)
-      return 'Nueva Ecija'
+      console.error(`[Geocode] API error ${data.status.code}: ${data.status.message}`)
+      return 'Unknown'
     }
 
     if (data.results && data.results.length > 0) {
       const comp = data.results[0].components
-      // Philippines admin levels: city/town → municipality → county → state_district
-      let mun = comp.city        ||
-                comp.town        ||
-                comp.municipality||
-                comp.county      ||
-                comp.state_district || 'Nueva Ecija'
-      // Clean up prefixes
-      mun = mun.replace(/^(City of |Municipality of )/i, '').trim()
+      // Get municipality/city level — not barangay or street
+      const mun  = comp.city        ||
+                   comp.town        ||
+                   comp.municipality||
+                   comp.county      ||
+                   comp.state_district || 'Unknown'
       console.log(`[Geocode] ✅ ${lat},${lng} → ${mun}`)
       _munCache.set(key, mun)
       return mun
     }
-    return 'Nueva Ecija'
+    return 'Unknown'
   } catch (e) {
     console.error('[Geocode] Error:', e.message)
-    return 'Nueva Ecija'
+    return 'Unknown'
   }
 }
-
-
 // ── Parse rows → one DB record per sheet row (raw counts) ─────────────
 // Municipality geocoding happens AFTER saving — doesn't block sync
 function parseRows(rows) {
@@ -176,31 +136,16 @@ function parseRows(rows) {
 // ── Background geocoding — runs after records are saved ───────────────
 async function geocodePendingRecords() {
   try {
-    // Step 1: Fix all records using bounds first (instant, no API)
-    const allRecords = db.all(`SELECT id, lat, lng, municipality FROM scan_records`)
-    let fixedByBounds = 0
-    for (const r of allRecords) {
-      const fromBounds = getMunicipalityFromBounds(r.lat, r.lng)
-      if (fromBounds && fromBounds !== r.municipality) {
-        db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [fromBounds, r.id])
-        fixedByBounds++
-      }
-    }
-    if (fixedByBounds > 0) {
-      db.save()
-      console.log(`[Geocode] ✅ Fixed ${fixedByBounds} records via bounds`)
-    }
-
-    // Step 2: API geocode remaining NULL records
     const pending = db.all(`SELECT id, lat, lng FROM scan_records WHERE municipality IS NULL LIMIT 50`)
     if (pending.length === 0) return
     console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} records via OpenCage...`)
     const seen = new Map()
     for (const r of pending) {
-      const key = `${parseFloat(r.lat).toFixed(3)},${parseFloat(r.lng).toFixed(3)}`
+      const key = `${parseFloat(r.lat).toFixed(4)},${parseFloat(r.lng).toFixed(4)}`
       const mun = seen.has(key) ? seen.get(key) : await getMunicipality(r.lat, r.lng)
       seen.set(key, mun)
       db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, r.id])
+      await new Promise(res => setTimeout(res, 1100)) // Respect 1 req/sec rate limit
     }
     db.save()
     console.log(`[Sheets Sync] ✅ Geocoded ${pending.length} records`)

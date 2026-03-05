@@ -169,79 +169,29 @@ function DiseaseMap({ records, tileType, activeFilters }) {
   )
 }
 
-// ── Municipality resolver via Nominatim ──────────────────────────────
-// Pre-seeded with sample data coords (rounded to 2 decimals) = instant load
-// New rover coords not in this list will call Nominatim automatically
-const _geoCache = new Map([
-  ['15.49,120.96', 'Cabanatuan City'],
-  ['15.49,120.98', 'Cabanatuan City'],
-  ['15.72,120.90', 'Science City of Muñoz'],
-  ['15.58,120.92', 'Talavera'],
-  ['15.79,120.99', 'San Jose City'],
-  ['15.44,120.86', 'San Isidro'],
-  ['15.66,120.83', 'Aliaga'],
-  ['15.78,120.66', 'Cuyapo'],
-  ['15.66,120.76', 'Guimba'],
-  ['15.42,120.84', 'Cabanatuan City'],
-])
-
+// ── Municipality resolver via OpenCage ──────────────────────────────
+const _geoCache = new Map()
 const OPENCAGE_API_KEY = '1f23d0ee06aa411dbe030f586218d272'
 
-const MUNICIPALITY_BOUNDS = [
-  { name: 'Cabanatuan City',       latMin: 15.44, latMax: 15.53, lngMin: 120.92, lngMax: 121.02 },
-  { name: 'Science City of Munoz', latMin: 15.68, latMax: 15.76, lngMin: 120.86, lngMax: 120.95 },
-  { name: 'Talavera',              latMin: 15.53, latMax: 15.63, lngMin: 120.87, lngMax: 120.96 },
-  { name: 'San Jose City',         latMin: 15.75, latMax: 15.83, lngMin: 120.95, lngMax: 121.03 },
-  { name: 'Sta. Rosa',             latMin: 15.40, latMax: 15.47, lngMin: 120.82, lngMax: 120.91 },
-  { name: 'Aliaga',                latMin: 15.62, latMax: 15.71, lngMin: 120.79, lngMax: 120.89 },
-  { name: 'Cuyapo',                latMin: 15.75, latMax: 15.82, lngMin: 120.62, lngMax: 120.71 },
-  { name: 'Guimba',                latMin: 15.62, latMax: 15.73, lngMin: 120.73, lngMax: 120.81 },
-  { name: 'Lupao',                 latMin: 15.81, latMax: 15.89, lngMin: 120.87, lngMax: 120.96 },
-  { name: 'Gapan City',            latMin: 15.29, latMax: 15.37, lngMin: 120.92, lngMax: 121.01 },
-  { name: 'Zaragoza',              latMin: 15.49, latMax: 15.56, lngMin: 120.84, lngMax: 120.91 },
-  { name: 'Llanera',               latMin: 15.67, latMax: 15.74, lngMin: 120.73, lngMax: 120.80 },
-  { name: 'Rizal',                 latMin: 15.72, latMax: 15.78, lngMin: 120.74, lngMax: 120.81 },
-  { name: 'Nampicuan',             latMin: 15.67, latMax: 15.73, lngMin: 120.68, lngMax: 120.75 },
-  { name: 'Sto. Domingo',          latMin: 15.52, latMax: 15.60, lngMin: 120.83, lngMax: 120.89 },
-]
-
-function getMunFromBounds(lat, lng) {
-  const flat = parseFloat(lat), flng = parseFloat(lng)
-  for (const m of MUNICIPALITY_BOUNDS) {
-    if (flat >= m.latMin && flat <= m.latMax && flng >= m.lngMin && flng <= m.lngMax) return m.name
-  }
-  return null
-}
-
 async function fetchMunicipality(lat, lng) {
-  const key = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`
+  const key = `${parseFloat(lat).toFixed(4)},${parseFloat(lng).toFixed(4)}`
   if (_geoCache.has(key)) return _geoCache.get(key)
-
-  // Instant bounds lookup first
-  const fromBounds = getMunFromBounds(lat, lng)
-  if (fromBounds) { _geoCache.set(key, fromBounds); return fromBounds }
-
   try {
-    const query = encodeURIComponent(`${lat},${lng}`)
-    const url   = `https://api.opencagedata.com/geocode/v1/json?key=${OPENCAGE_API_KEY}&q=${query}&no_annotations=1&language=en`
+    const query = `${lat},+${lng}`
+    const url   = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${OPENCAGE_API_KEY}&language=en&no_annotations=1`
     const r     = await fetch(url)
     const d     = await r.json()
     if (d.results && d.results.length > 0) {
       const comp = d.results[0].components
-      let mun    = comp.city        ||
-                   comp.town        ||
-                   comp.municipality||
-                   comp.county      ||
-                   comp.state_district || 'Nueva Ecija'
-      mun = mun.replace(/^(City of |Municipality of )/i, '').trim()
+      const mun  = comp.city || comp.town || comp.municipality ||
+                   comp.county || comp.state_district || 'Unknown'
       _geoCache.set(key, mun)
       return mun
     }
-    return 'Nueva Ecija'
-  } catch { return 'Nueva Ecija' }
+    return 'Unknown'
+  } catch { return 'Unknown' }
 }
 
-// Resolve all records: group → fetch unique coords in parallel → apply
 async function resolveAllMunicipalities(records, setRecords) {
   // Build map of unique rounded key → one representative coord
   const unique = new Map()
