@@ -30,7 +30,7 @@ app.get('/api/health', (req, res) => {
 })
 
 init().then(() => {
-  const { startSheetsSync } = require('./sheetsSync')
+  const { startSync } = require('./Sheetssync')
   const authRoutes  = require('./routes/auth')
   const usersRoutes = require('./routes/users')
   const scansRoutes = require('./routes/scans')
@@ -40,7 +40,7 @@ init().then(() => {
   app.use('/api/scans', scansRoutes)
 
   // Start Google Sheets sync (rover data)
-  startSheetsSync()
+  startSync()
 
   // 404 handler
   app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.path} not found` }))
@@ -62,3 +62,6 @@ init().then(() => {
   console.error('❌ Failed to initialize database:', err)
   process.exit(1)
 })
+
+
+

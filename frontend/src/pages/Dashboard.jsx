@@ -14,7 +14,7 @@ function MiniCalendar({ records, selectedDate, onSelectDate }) {
   const [month, setMonth] = useState(1)
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa']
-  const dataDates = useMemo(() => new Set(records.map(r => r.date.split(' ')[0])), [records])
+  const dataDates = useMemo(() => new Set(records.map(r => (r.date || r.scanned_at || '').split(' ')[0]).filter(Boolean)), [records])
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const cells = []
@@ -120,7 +120,7 @@ function FitBounds({ records }) {
   useEffect(() => {
     if (records.length === 0) return
     const bounds = records.map(r => [parseFloat(r.lat), parseFloat(r.lng)])
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 })
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 })
   }, [records, map])
   return null
 }
@@ -134,8 +134,8 @@ function DiseaseMap({ records, tileType, activeFilters }) {
     ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
   return (
-    <MapContainer center={center} zoom={15} className="leaflet-container">
-      <TileLayer url={tileUrl} attribution="© OpenStreetMap contributors" />
+    <MapContainer center={center} zoom={15} maxZoom={20} className="leaflet-container">
+      <TileLayer url={tileUrl} attribution="© OpenStreetMap contributors" maxZoom={20} maxNativeZoom={19} />
       <FitBounds records={records} />
       {records.flatMap(r => {
         // One dot per disease per record — only show if disease is in activeFilters
@@ -397,14 +397,13 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, [records, activeFilters, selectedDate])
 
   const sessions = useMemo(() => {
-    // Normalize municipality — treat null/Unknown/Nueva Ecija variants as same
     const normMun = (r) => {
       const m = (r.municipality || '').trim()
       if (!m || m === 'Unknown' || m === '') return '⏳ Pending'
       return m.replace(/^(City of |Municipality of )/i, '').trim()
     }
 
-    // Group by date + normalized municipality
+    // Group strictly by date + municipality — all same-mun same-date records merge into ONE session
     const byKey = {}
     filtered.forEach(r => {
       const date = (r.date || r.scanned_at || '').split(' ')[0]
@@ -413,11 +412,15 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       if (!byKey[key]) byKey[key] = []
       byKey[key].push(r)
     })
+
     return Object.entries(byKey)
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, recs]) => {
         const [date, municipality] = key.split('||')
-        return [key, recs, date, municipality]
+        // Average lat/lng of all records in this session for the map center
+        const avgLat = recs.reduce((s, r) => s + parseFloat(r.lat), 0) / recs.length
+        const avgLng = recs.reduce((s, r) => s + parseFloat(r.lng), 0) / recs.length
+        return [key, recs, date, municipality, avgLat, avgLng]
       })
   }, [filtered])
 
@@ -426,7 +429,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     const [date, mun] = activeMapDate.split('||')
     return records.filter(r =>
       r.date.startsWith(date) &&
-      (r.municipality || 'Unknown') === mun &&
+      (mun === '⏳ Pending' ? !r.municipality || r.municipality === 'Unknown' : (r.municipality || '') === mun) &&
       [...activeFilters].some(k => (parseInt(r[k]) || 0) > 0)
     )
   }, [activeMapDate, records, activeFilters])
@@ -438,12 +441,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   const tableRecords = useMemo(() => {
     if (!activeSessionBrgy || !activeMapDate) return filtered
-    return filtered.filter(r => r.date.startsWith(activeSessionDate) && (r.municipality || 'Unknown') === activeSessionBrgy)
+    return filtered.filter(r => r.date.startsWith(activeSessionDate) && (activeSessionBrgy === '⏳ Pending' ? !r.municipality || r.municipality === 'Unknown' : (r.municipality || '') === activeSessionBrgy))
   }, [filtered, activeSessionBrgy, activeMapDate])
 
   const filterScopeRecords = useMemo(() => {
     if (!activeSessionBrgy || !activeMapDate) return records
-    return records.filter(r => r.date.startsWith(activeSessionDate) && (r.municipality || 'Unknown') === activeSessionBrgy)
+    return records.filter(r => r.date.startsWith(activeSessionDate) && (activeSessionBrgy === '⏳ Pending' ? !r.municipality || r.municipality === 'Unknown' : (r.municipality || '') === activeSessionBrgy))
   }, [records, activeSessionBrgy, activeMapDate])
 
   const pieData = useMemo(() => ({
@@ -692,9 +695,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     <div className="text-4xl mb-3">📭</div>
                     <p className="text-sm">No scan sessions for selected filters.</p>
                   </div>
-                ) : sessions.map(([key, recs, date, municipality]) => {
-                  const avgLat     = (recs.reduce((a, r) => a + parseFloat(r.lat), 0) / recs.length).toFixed(4)
-                  const avgLng     = (recs.reduce((a, r) => a + parseFloat(r.lng), 0) / recs.length).toFixed(4)
+                ) : sessions.map(([key, recs, date, municipality, sAvgLat, sAvgLng]) => {
+                  const avgLat     = (sAvgLat || 0).toFixed(4)
+                  const avgLng     = (sAvgLng || 0).toFixed(4)
                   const h = recs.reduce((a, r) => a + (parseInt(r.healthy) || 0), 0)
                   const d = recs.reduce((a, r) => a + (parseInt(r.insect) || 0) + (parseInt(r.leafspot) || 0) + (parseInt(r.mosaic) || 0) + (parseInt(r.wilt) || 0), 0)
                   const diseaseTypes = []
@@ -865,7 +868,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                           </span>
                         </td>
                         <td className="px-4 sm:px-5 py-3 hidden sm:table-cell">
-                          <div className="font-medium text-gray-800 text-xs sm:text-sm">{r.municipality || "—"}</div>
+                          <div className="font-medium text-gray-800 text-xs sm:text-sm">{r.municipality || <span className="text-orange-400 text-xs">⏳ Geocoding...</span>}</div>
                         </td>
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lat}</td>
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lng}</td>

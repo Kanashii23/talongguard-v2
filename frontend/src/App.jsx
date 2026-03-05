@@ -21,6 +21,17 @@ function loadUser() {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(loadUser)
   const [records, setRecords]         = useState([])
+
+  // Normalize date format to YYYY-MM-DD HH:MM:SS regardless of source format
+  function normalizeDates(data) {
+    return (data || []).map(r => {
+      if (!r.date) return r
+      // Handle DD/MM/YYYY HH:MM format from Google Sheets
+      const m = r.date.match(/^(\d{2})\/(\d{2})\/(\d{4})(.*)$/)
+      if (m) return { ...r, date: `${m[3]}-${m[2]}-${m[1]}${m[4]}` }
+      return r
+    })
+  }
   const [scansLoaded, setScansLoaded] = useState(false)
   const [toast, setToast]             = useState(null)
 
@@ -29,14 +40,8 @@ export default function App() {
 
   // Fetch scan records on load — public, no login required
   useEffect(() => {
-    if (scansLoaded) return
     api.getScans()
-      .then(data => {
-        if (data && data.length > 0) {
-          setRecords(data)
-          setScansLoaded(true)
-        }
-      })
+      .then(data => { if (data && data.length > 0) { setRecords(normalizeDates(data)); setScansLoaded(true) } })
       .catch(() => {})
   }, []) // eslint-disable-line
 
@@ -44,9 +49,28 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return
     api.getScans()
-      .then(data => { if (data && data.length > 0) setRecords(data) })
+      .then(data => { if (data && data.length > 0) setRecords(normalizeDates(data)) })
       .catch(() => {})
   }, [currentUser]) // eslint-disable-line
+
+  // Poll every 15 seconds until all records have municipality resolved
+  useEffect(() => {
+    const hasPending = () => records.some(r => !r.municipality || r.municipality === 'Unknown')
+    if (!hasPending()) return
+    const interval = setInterval(() => {
+      api.getScans()
+        .then(data => {
+          if (data && data.length > 0) {
+            setRecords(normalizeDates(data))
+            if (!data.some(r => !r.municipality || r.municipality === 'Unknown')) {
+              clearInterval(interval) // Stop polling once all resolved
+            }
+          }
+        })
+        .catch(() => {})
+    }, 15000) // Poll every 15 seconds
+    return () => clearInterval(interval)
+  }, [records]) // eslint-disable-line
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type })
