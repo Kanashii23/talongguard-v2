@@ -524,28 +524,49 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   async function handleSaveRecord(form) {
     if (editingId) {
+      const updated = {
+        date:         form.date,
+        lat:          parseFloat(form.lat),
+        lng:          parseFloat(form.lng),
+        municipality: form.municipality,
+        healthy:      parseInt(form.healthy)  || 0,
+        insect:       parseInt(form.insect)   || 0,
+        leafspot:     parseInt(form.leafspot) || 0,
+        mosaic:       parseInt(form.mosaic)   || 0,
+        wilt:         parseInt(form.wilt)     || 0,
+        is_edited:    1,
+      }
+
+      // 1. Update local state IMMEDIATELY — no flicker, no disappearing
+      setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
+      setModalData(null)
+      setEditingId(null)
+      showToast('✅ Record updated')
+
+      // 2. Save to DB in background — UI already reflects the change
       try {
         await api.updateScan(editingId, {
-          scanned_at:   form.date,
-          lat:          parseFloat(form.lat),
-          lng:          parseFloat(form.lng),
-          municipality: form.municipality,
-          healthy:      parseInt(form.healthy)  || 0,
-          insect:       parseInt(form.insect)   || 0,
-          leafspot:     parseInt(form.leafspot) || 0,
-          mosaic:       parseInt(form.mosaic)   || 0,
-          wilt:         parseInt(form.wilt)     || 0,
+          scanned_at:   updated.date,
+          lat:          updated.lat,
+          lng:          updated.lng,
+          municipality: updated.municipality,
+          healthy:      updated.healthy,
+          insect:       updated.insect,
+          leafspot:     updated.leafspot,
+          mosaic:       updated.mosaic,
+          wilt:         updated.wilt,
         })
-        // Re-fetch all records from server so UI is always in sync with DB
-        const fresh = await api.getScans()
-        if (fresh && fresh.length > 0) setRecords(fresh)
-        showToast('✅ Record updated')
       } catch (err) {
-        console.error('Update error:', err)
-        showToast('❌ Failed to update: ' + err.message, 'error')
+        console.error('Save to DB failed:', err)
+        // Re-fetch to restore correct state if DB save failed
+        const fresh = await api.getScans().catch(() => null)
+        if (fresh && fresh.length > 0) setRecords(fresh)
+        showToast('❌ Failed to save to database', 'error')
       }
+    } else {
+      setModalData(null)
+      setEditingId(null)
     }
-    setModalData(null); setEditingId(null)
   }
 
   function handleDelete(id) {
