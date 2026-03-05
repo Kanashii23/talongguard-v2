@@ -103,6 +103,7 @@ function createTables() {
     leafspot     INTEGER DEFAULT 0,
     mosaic       INTEGER DEFAULT 0,
     wilt         INTEGER DEFAULT 0,
+    is_edited    INTEGER DEFAULT 0,
     UNIQUE(lat, lng, scanned_at)
   )`)
 }
