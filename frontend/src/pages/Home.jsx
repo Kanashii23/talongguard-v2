@@ -2,15 +2,16 @@ import { Link } from 'react-router-dom'
 import { DISEASE_CONFIG } from '../data/data.js'
 
 export default function Home({ records }) {
-  const healthy = records.filter(r => r.disease === 'healthy').length
-  const diseased = records.length - healthy
+  const healthy      = records.reduce((s, r) => s + (parseInt(r.healthy)  || 0), 0)
+  const diseased     = records.reduce((s, r) => s + (parseInt(r.insect) || 0) + (parseInt(r.leafspot) || 0) + (parseInt(r.mosaic) || 0) + (parseInt(r.wilt) || 0), 0)
+  const totalSamples = healthy + diseased
 
   const features = [
     { icon: '🤖', title: 'Autonomous Robot',     desc: 'ESP32-powered robot navigates fields autonomously, scanning each plant with precision using dual cameras — top view and side view.' },
     { icon: '📷', title: 'Dual-Camera System',   desc: 'Two webcams capture simultaneous top and middle views of leaves. Raspberry Pi 4 processes images in real-time using an AI model.' },
     { icon: '🗺️', title: 'GPS Disease Mapping',  desc: 'Every scanned plant is plotted on a live map with GPS coordinates, showing exactly which field zones need attention.' },
     { icon: '📊', title: 'Historical Tracking',  desc: 'Browse past scan sessions by date. Track how disease spread changes over time and monitor the impact of treatments.' },
-    { icon: '🔬', title: '6 Disease Classes',    desc: 'Detects and classifies Healthy Leaf, Insect Pest, Leaf Spot, Mosaic Virus, White Mold, and Wilt Disease with high accuracy.' },
+    { icon: '🔬', title: '5 Disease Classes',    desc: 'Detects and classifies Healthy Leaf, Insect Pest, Leaf Spot, Mosaic Virus, and Wilt Disease with high accuracy.' },
     { icon: '🔐', title: 'Role-Based Access',    desc: 'Public visitors can view all data freely. Licensed Agriculturists can log in to edit, annotate, and manage records.' },
   ]
 
@@ -76,7 +77,7 @@ export default function Home({ records }) {
               </div>
               <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
                 {[
-                  { val: records.length, lbl: 'Total Samples' },
+                  { val: totalSamples,   lbl: 'Total Samples' },
                   { val: healthy,        lbl: 'Healthy',  color: 'text-green-400' },
                   { val: diseased,       lbl: 'Diseased', color: 'text-red-400' },
                 ].map(({ val, lbl, color }) => (
@@ -95,10 +96,10 @@ export default function Home({ records }) {
       <section className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { val: records.length, lbl: 'Total Number of Samples', color: 'text-forest-700' },
+            { val: totalSamples,   lbl: 'Total Number of Samples', color: 'text-forest-700' },
             { val: healthy,        lbl: 'Healthy Plants',         color: 'text-green-600' },
             { val: diseased,       lbl: 'Diseased Plants',        color: 'text-red-500' },
-            { val: 6,              lbl: 'Disease Types Detected', color: 'text-eggplant-700' },
+            { val: 5,              lbl: 'Disease Types Detected', color: 'text-eggplant-700' },
           ].map(({ val, lbl, color }) => (
             <div key={lbl} className="text-center p-6 rounded-2xl bg-gray-50 hover:-translate-y-1 transition-transform duration-200">
               <div className={`font-display text-4xl font-bold ${color} mb-1`}>{val}</div>

@@ -34,8 +34,8 @@ export default {
         cream: '#fafaf8',
       },
       animation: {
-        'fade-up':   'fadeUp 0.5s ease forwards',
-        'fade-in':   'fadeIn 0.4s ease forwards',
+        'fade-up':   'fadeUp 0.18s ease forwards',
+        'fade-in':   'fadeIn 0.15s ease forwards',
         'slide-in':  'slideIn 0.35s ease forwards',
         'pulse-dot': 'pulseDot 2s ease-in-out infinite',
       },

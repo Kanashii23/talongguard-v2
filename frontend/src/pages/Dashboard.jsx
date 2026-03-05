@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler } from 'chart.js'
 import { Doughnut, Line } from 'react-chartjs-2'
@@ -220,6 +221,11 @@ async function resolveAllMunicipalities(records, setRecords) {
 
 // ── Record Modal ──────────────────────────────────────────────────────
 function RecordModal({ record, onSave, onClose }) {
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
   const [form, setForm] = useState({
     date:     (record?.date || '').replace(' ', 'T'),
     lat:      record?.lat  || '',
@@ -270,8 +276,8 @@ function RecordModal({ record, onSave, onClose }) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-md shadow-2xl animate-fade-up max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-fade-up overflow-y-auto" style={{maxHeight:"90vh"}}>
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
         <h3 className="font-display text-xl font-bold text-gray-900 mb-6">Edit Record</h3>
         <div className="space-y-4">
@@ -359,6 +365,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const [selectedDate, setSelectedDate] = useState(null)
   const [tileType, setTileType] = useState('streets')
   const [activeMapDate, setActiveMapDate] = useState(null)
+  const mapRef = useRef(null)
   const [modalData, setModalData] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -376,10 +383,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     return () => { document.body.style.overflow = '' }
   }, [sidebarOpen])
 
-  // Close sidebar when opening map on mobile
+  // Close sidebar when opening map on mobile, jump to top instantly
   function openMap(date) {
     setActiveMapDate(date)
     setSidebarOpen(false)
+    window.scrollTo({ top: 0 })
   }
 
   function toggleFilter(key) {
@@ -659,9 +667,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         )}
 
         {/* ── Main content ── */}
-        <main className="flex-1 pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0">
+        <main className="flex-1 pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
 
-          {/* Stats cards */}
+          {/* Stats cards — always visible */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {[
               { icon: '🌿', val: totalSamples,        lbl: 'Total Samples',    iconBg: 'bg-green-50' },
@@ -677,6 +685,25 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               </div>
             ))}
           </div>
+
+          {/* Map view — shown below stats when active */}
+          {activeMapDate && (
+            <div ref={mapRef} className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm mb-4 sm:mb-6 overflow-hidden">
+              <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
+                <button onClick={() => setActiveMapDate(null)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-forest-700 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition">
+                  ← Back
+                </button>
+                <span className="font-semibold text-xs sm:text-sm text-gray-800 truncate">
+                  🗺️ {activeSessionBrgy} · {activeSessionDate}
+                </span>
+                <span className="ml-auto text-xs text-gray-400 flex-shrink-0">{mapRecords.length} samples</span>
+              </div>
+              <div style={{ height: '420px' }}>
+                <DiseaseMap records={mapRecords} tileType={tileType} activeFilters={activeFilters} />
+              </div>
+            </div>
+          )}
 
           {/* Scan Sessions */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm mb-4 sm:mb-6 overflow-hidden">
@@ -740,22 +767,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               </div>
             )}
 
-            {/* Map view */}
-            {activeMapDate && (
-              <div>
-                <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
-                  <button onClick={() => setActiveMapDate(null)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-forest-700 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition">
-                    ← Back
-                  </button>
-                  <span className="font-semibold text-xs sm:text-sm text-gray-800 truncate">
-                    🗺️ {activeSessionBrgy} · {activeSessionDate}
-                  </span>
-                  <span className="ml-auto text-xs text-gray-400 flex-shrink-0">{mapRecords.length} samples</span>
-                </div>
-                <DiseaseMap records={mapRecords} tileType={tileType} activeFilters={activeFilters} />
-              </div>
-            )}
+
           </div>
 
           {/* Charts */}
@@ -924,9 +936,10 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         </main>
       </div>
 
-      {/* Record modal */}
-      {modalData !== null && (
-        <RecordModal record={modalData || null} onSave={handleSaveRecord} onClose={() => { setModalData(null); setEditingId(null) }} />
+      {/* Record modal — rendered via portal directly on body so fixed positioning always works */}
+      {modalData !== null && createPortal(
+        <RecordModal record={modalData || null} onSave={handleSaveRecord} onClose={() => { setModalData(null); setEditingId(null) }} />,
+        document.body
       )}
     </div>
   )
