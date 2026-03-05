@@ -526,14 +526,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       try {
         await api.updateScan(editingId, {
           scanned_at:   form.date,
-          lat:          form.lat,
-          lng:          form.lng,
+          lat:          parseFloat(form.lat),
+          lng:          parseFloat(form.lng),
           municipality: form.municipality,
-          healthy:      form.healthy,
-          insect:       form.insect,
-          leafspot:     form.leafspot,
-          mosaic:       form.mosaic,
-          wilt:         form.wilt,
+          healthy:      parseInt(form.healthy)  || 0,
+          insect:       parseInt(form.insect)   || 0,
+          leafspot:     parseInt(form.leafspot) || 0,
+          mosaic:       parseInt(form.mosaic)   || 0,
+          wilt:         parseInt(form.wilt)     || 0,
         })
         // Update local state immediately so UI reflects change
         setRecords(prev => prev.map(r => r.id === editingId
@@ -545,8 +545,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           : r
         ))
         showToast('✅ Record updated')
-      } catch {
-        showToast('❌ Failed to update record', 'error')
+      } catch (err) {
+        console.error('Update error:', err)
+        showToast('❌ Failed to update: ' + err.message, 'error')
       }
     }
     setModalData(null); setEditingId(null)
