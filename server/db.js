@@ -86,6 +86,11 @@ function createTables() {
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
   )`)
 
+  db.run(`CREATE TABLE IF NOT EXISTS sync_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`)
+
   db.run(`CREATE TABLE IF NOT EXISTS scan_records (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     lat          REAL    NOT NULL,
@@ -97,7 +102,8 @@ function createTables() {
     insect       INTEGER DEFAULT 0,
     leafspot     INTEGER DEFAULT 0,
     mosaic       INTEGER DEFAULT 0,
-    wilt         INTEGER DEFAULT 0
+    wilt         INTEGER DEFAULT 0,
+    UNIQUE(lat, lng, scanned_at)
   )`)
 }
 

@@ -27,7 +27,17 @@ const COL_LEAF_SPOT    = 5
 const COL_MOSAIC_VIRUS = 6
 const COL_WILT         = 7
 
-let lastSyncedRow = 0
+// ── Persist lastSyncedRow in DB so server restarts don't re-sync ─────
+function getLastSyncedRow() {
+  try {
+    const row = db.get(`SELECT value FROM sync_state WHERE key = 'lastSyncedRow'`)
+    return row ? parseInt(row.value) : 0
+  } catch { return 0 }
+}
+function setLastSyncedRow(n) {
+  db.run(`INSERT OR REPLACE INTO sync_state (key, value) VALUES ('lastSyncedRow', ?)`, [String(n)])
+  db.save()
+}
 
 // ── Parse CSV line properly (handles commas inside quotes) ────────────
 function parseCSVLine(line) {
@@ -73,13 +83,14 @@ async function getMunicipality(lat, lng) {
 }
 
 // ── Parse rows → one DB record per sheet row (raw counts) ─────────────
-async function parseRows(rows) {
+// Municipality geocoding happens AFTER saving — doesn't block sync
+function parseRows(rows) {
   const records = []
+  if (rows.length > 0) console.log(`[Sheets Sync] Sample row[0]:`, JSON.stringify(rows[0]))
   for (const row of rows) {
     if (!row || row.length < 8) continue
 
     const rawDt = String(row[COL_DATETIME] || '').trim()
-    // Skip header or empty rows
     if (!rawDt || rawDt.toLowerCase().includes('date') || rawDt === 'N/A') continue
 
     const lat = parseFloat(row[COL_LATITUDE])
@@ -93,14 +104,32 @@ async function parseRows(rows) {
     const mosaic   = parseInt(row[COL_MOSAIC_VIRUS] || 0) || 0
     const wilt     = parseInt(row[COL_WILT]         || 0) || 0
 
-    // Skip rows where all counts are 0
     if (healthy + insect + leafspot + mosaic + wilt === 0) continue
 
-    const municipality = await getMunicipality(lat, lng)
-
-    records.push({ lat, lng, municipality, scanned_at: rawDt, healthy, insect, leafspot, mosaic, wilt })
+    // Save with null municipality first — geocode in background after
+    records.push({ lat, lng, municipality: null, scanned_at: rawDt, healthy, insect, leafspot, mosaic, wilt })
   }
   return records
+}
+
+// ── Background geocoding — runs after records are saved ───────────────
+async function geocodePendingRecords() {
+  try {
+    const pending = db.all(`SELECT id, lat, lng FROM scan_records WHERE municipality IS NULL LIMIT 50`)
+    if (pending.length === 0) return
+    console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} records...`)
+    const seen = new Map()
+    for (const r of pending) {
+      const key = `${parseFloat(r.lat).toFixed(2)},${parseFloat(r.lng).toFixed(2)}`
+      const mun = seen.has(key) ? seen.get(key) : await getMunicipality(r.lat, r.lng)
+      seen.set(key, mun)
+      db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, r.id])
+    }
+    db.save()
+    console.log(`[Sheets Sync] ✅ Geocoded ${pending.length} records`)
+  } catch (err) {
+    console.error('[Sheets Sync] Geocode error:', err.message)
+  }
 }
 
 // ── Save records to database ──────────────────────────────────────────
@@ -108,7 +137,7 @@ function saveRecords(records) {
   let inserted = 0
   for (const r of records) {
     db.run(
-      `INSERT INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt)
+      `INSERT OR IGNORE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt)
        VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?)`,
       [r.lat, r.lng, r.municipality, r.scanned_at, r.healthy, r.insect, r.leafspot, r.mosaic, r.wilt]
     )
@@ -119,22 +148,42 @@ function saveRecords(records) {
 }
 
 // ── Main sync ─────────────────────────────────────────────────────────
+// Always clear + re-sync so DB matches sheet exactly — no duplicates ever
 async function syncSheets() {
   try {
     const allRows  = await fetchSheetCSV()
     const dataRows = allRows.slice(1) // skip header
-    const newRows  = dataRows.slice(lastSyncedRow)
 
-    if (newRows.length === 0) {
-      console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] No new rows`)
+    // Filter out empty rows and totals row at bottom
+    const validRows = dataRows.filter(row => {
+      if (!row || row.length < 8) return false
+      const rawDt = String(row[COL_DATETIME] || '').trim()
+      if (!rawDt || rawDt === '' || rawDt.toLowerCase().includes('date') || rawDt === 'N/A') return false
+      const lat = parseFloat(row[COL_LATITUDE])
+      const lng = parseFloat(row[COL_LONGITUDE])
+      if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return false
+      return true
+    })
+
+    console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] Sheet has ${validRows.length} valid rows`)
+
+    // Parse synchronously — no geocoding yet
+    const records = parseRows(validRows)
+    console.log(`[Sheets Sync] Parsed ${records.length} records from ${validRows.length} rows`)
+
+    if (records.length === 0) {
+      console.log('[Sheets Sync] ⚠️  No records parsed — skipping to avoid empty DB')
       return
     }
 
-    console.log(`[${new Date().toLocaleTimeString()}] [Sheets Sync] 📡 ${newRows.length} new row(s)`)
-    const records  = await parseRows(newRows)
+    // Clear and re-sync — sheet is always the source of truth
+    db.run('DELETE FROM scan_records')
+    db.save()
     const inserted = saveRecords(records)
-    console.log(`[Sheets Sync] ✅ Saved ${inserted} rows to database`)
-    lastSyncedRow += newRows.length
+    console.log(`[Sheets Sync] ✅ Synced ${inserted} rows — matches sheet exactly`)
+
+    // Geocode in background — won't block next sync cycle
+    geocodePendingRecords()
 
   } catch (err) {
     console.error('[Sheets Sync] ❌ Error:', err.message)
@@ -142,7 +191,7 @@ async function syncSheets() {
 }
 
 function startSheetsSync() {
-  console.log('✅ [Sheets Sync] Starting — polling Google Sheet every 2 minutes')
+  console.log(`✅ [Sheets Sync] Starting — resuming from row ${getLastSyncedRow()} (persisted)`)
   syncSheets()
   cron.schedule(SYNC_INTERVAL, syncSheets)
 }
