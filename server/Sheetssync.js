@@ -104,7 +104,10 @@ function parseRows(rows) {
     const mosaic   = parseInt(row[COL_MOSAIC_VIRUS] || 0) || 0
     const wilt     = parseInt(row[COL_WILT]         || 0) || 0
 
-    if (healthy + insect + leafspot + mosaic + wilt === 0) continue
+    if (healthy + insect + leafspot + mosaic + wilt === 0) {
+      console.log(`[Sheets Sync] ⚠️  Skipped zero-count row: ${rawDt}`)
+      continue
+    }
 
     // Save with null municipality first — geocode in background after
     records.push({ lat, lng, municipality: null, scanned_at: rawDt, healthy, insect, leafspot, mosaic, wilt })

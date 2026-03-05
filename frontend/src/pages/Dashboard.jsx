@@ -536,15 +536,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           mosaic:       parseInt(form.mosaic)   || 0,
           wilt:         parseInt(form.wilt)     || 0,
         })
-        // Update local state immediately so UI reflects change
-        setRecords(prev => prev.map(r => r.id === editingId
-          ? { ...r, date: form.date, lat: form.lat, lng: form.lng,
-              municipality: form.municipality,
-              healthy: form.healthy, insect: form.insect,
-              leafspot: form.leafspot, mosaic: form.mosaic, wilt: form.wilt,
-              is_edited: 1 }
-          : r
-        ))
+        // Re-fetch all records from server so UI is always in sync with DB
+        const fresh = await api.getScans()
+        if (fresh && fresh.length > 0) setRecords(fresh)
         showToast('✅ Record updated')
       } catch (err) {
         console.error('Update error:', err)
