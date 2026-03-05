@@ -243,6 +243,7 @@ function RecordModal({ record, onSave, onClose }) {
   })
   const [munLoading, setMunLoading]     = useState(false)
   const [municipality, setMunicipality] = useState(record?.municipality || '')
+  const [isSaving, setIsSaving]         = useState(false)
   const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setInt = (k, v) => setForm(f => ({ ...f, [k]: Math.max(0, parseInt(v) || 0) }))
 
@@ -260,13 +261,15 @@ function RecordModal({ record, onSave, onClose }) {
     return () => clearTimeout(t)
   }, [form.lat, form.lng])
 
-  function handleSave() {
-    if (!form.date || !form.lat || !form.lng) return
-    onSave({
+  async function handleSave() {
+    if (!form.date || !form.lat || !form.lng || isSaving) return
+    setIsSaving(true)
+    await onSave({
       ...form,
       date:         form.date.replace('T', ' '),
       municipality: municipality || record?.municipality || 'Nueva Ecija',
     })
+    setIsSaving(false)
   }
 
   const DISEASE_FIELDS = [
@@ -347,7 +350,12 @@ function RecordModal({ record, onSave, onClose }) {
         </div>
         <div className="flex gap-3 mt-7">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
-          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-forest-700 text-white text-sm font-semibold hover:bg-forest-800 transition shadow-sm">Save Record</button>
+          <button onClick={handleSave} disabled={isSaving}
+            className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition shadow-sm flex items-center justify-center gap-2 ${isSaving ? 'bg-forest-400 cursor-not-allowed' : 'bg-forest-700 hover:bg-forest-800'}`}>
+            {isSaving ? (
+              <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving...</>
+            ) : 'Save Record'}
+          </button>
         </div>
       </div>
     </div>
@@ -537,14 +545,8 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         is_edited:    1,
       }
 
-      // 1. Update local state IMMEDIATELY — no flicker, no disappearing
-      setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
-      setModalData(null)
-      setEditingId(null)
-      showToast('✅ Record updated')
-
-      // 2. Save to DB in background — UI already reflects the change
       try {
+        // 1. Save to DB FIRST — mark as edited so sync can never overwrite it
         await api.updateScan(editingId, {
           scanned_at:   updated.date,
           lat:          updated.lat,
@@ -556,12 +558,18 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           mosaic:       updated.mosaic,
           wilt:         updated.wilt,
         })
+
+        // 2. Update local state AFTER DB confirms — guaranteed to persist
+        setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
+        setModalData(null)
+        setEditingId(null)
+        showToast('✅ Record updated')
+
       } catch (err) {
         console.error('Save to DB failed:', err)
-        // Re-fetch to restore correct state if DB save failed
-        const fresh = await api.getScans().catch(() => null)
-        if (fresh && fresh.length > 0) setRecords(fresh)
-        showToast('❌ Failed to save to database', 'error')
+        setModalData(null)
+        setEditingId(null)
+        showToast('❌ Failed to save: ' + err.message, 'error')
       }
     } else {
       setModalData(null)
