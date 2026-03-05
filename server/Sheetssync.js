@@ -66,16 +66,21 @@ async function fetchSheetCSV() {
 
 // ── Pre-seeded municipality bounds for Nueva Ecija ───────────────────
 const MUNICIPALITY_BOUNDS = [
-  { name: 'Cabanatuan City',       latMin: 15.45, latMax: 15.52, lngMin: 120.93, lngMax: 121.01 },
-  { name: 'Science City of Munoz', latMin: 15.69, latMax: 15.75, lngMin: 120.87, lngMax: 120.94 },
-  { name: 'Talavera',              latMin: 15.54, latMax: 15.62, lngMin: 120.88, lngMax: 120.95 },
-  { name: 'San Jose City',         latMin: 15.76, latMax: 15.82, lngMin: 120.96, lngMax: 121.02 },
-  { name: 'San Isidro',            latMin: 15.41, latMax: 15.46, lngMin: 120.83, lngMax: 120.90 },
-  { name: 'Aliaga',                latMin: 15.63, latMax: 15.70, lngMin: 120.80, lngMax: 120.87 },
-  { name: 'Cuyapo',                latMin: 15.76, latMax: 15.81, lngMin: 120.63, lngMax: 120.70 },
-  { name: 'Guimba',                latMin: 15.63, latMax: 15.70, lngMin: 120.74, lngMax: 120.80 },
-  { name: 'Lupao',                 latMin: 15.82, latMax: 15.88, lngMin: 120.88, lngMax: 120.95 },
-  { name: 'Gapan City',            latMin: 15.30, latMax: 15.36, lngMin: 120.93, lngMax: 121.00 },
+  { name: 'Cabanatuan City',       latMin: 15.44, latMax: 15.53, lngMin: 120.92, lngMax: 121.02 },
+  { name: 'Science City of Munoz', latMin: 15.68, latMax: 15.76, lngMin: 120.86, lngMax: 120.95 },
+  { name: 'Talavera',              latMin: 15.53, latMax: 15.63, lngMin: 120.87, lngMax: 120.96 },
+  { name: 'San Jose City',         latMin: 15.75, latMax: 15.83, lngMin: 120.95, lngMax: 121.03 },
+  { name: 'San Isidro',            latMin: 15.40, latMax: 15.47, lngMin: 120.82, lngMax: 120.91 },
+  { name: 'Aliaga',                latMin: 15.62, latMax: 15.71, lngMin: 120.79, lngMax: 120.89 },
+  { name: 'Cuyapo',                latMin: 15.75, latMax: 15.82, lngMin: 120.62, lngMax: 120.71 },
+  { name: 'Guimba',                latMin: 15.62, latMax: 15.73, lngMin: 120.73, lngMax: 120.81 },
+  { name: 'Lupao',                 latMin: 15.81, latMax: 15.89, lngMin: 120.87, lngMax: 120.96 },
+  { name: 'Gapan City',            latMin: 15.29, latMax: 15.37, lngMin: 120.92, lngMax: 121.01 },
+  { name: 'Zaragoza',              latMin: 15.49, latMax: 15.56, lngMin: 120.84, lngMax: 120.91 },
+  { name: 'Llanera',               latMin: 15.67, latMax: 15.74, lngMin: 120.73, lngMax: 120.80 },
+  { name: 'Rizal',                 latMin: 15.72, latMax: 15.78, lngMin: 120.74, lngMax: 120.81 },
+  { name: 'Nampicuan',             latMin: 15.67, latMax: 15.73, lngMin: 120.68, lngMax: 120.75 },
+  { name: 'Sto. Domingo',          latMin: 15.52, latMax: 15.60, lngMin: 120.83, lngMax: 120.89 },
 ]
 
 function getMunicipalityFromBounds(lat, lng) {
@@ -171,12 +176,28 @@ function parseRows(rows) {
 // ── Background geocoding — runs after records are saved ───────────────
 async function geocodePendingRecords() {
   try {
+    // Step 1: Fix all records using bounds first (instant, no API)
+    const allRecords = db.all(`SELECT id, lat, lng, municipality FROM scan_records`)
+    let fixedByBounds = 0
+    for (const r of allRecords) {
+      const fromBounds = getMunicipalityFromBounds(r.lat, r.lng)
+      if (fromBounds && fromBounds !== r.municipality) {
+        db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [fromBounds, r.id])
+        fixedByBounds++
+      }
+    }
+    if (fixedByBounds > 0) {
+      db.save()
+      console.log(`[Geocode] ✅ Fixed ${fixedByBounds} records via bounds`)
+    }
+
+    // Step 2: API geocode remaining NULL records
     const pending = db.all(`SELECT id, lat, lng FROM scan_records WHERE municipality IS NULL LIMIT 50`)
     if (pending.length === 0) return
-    console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} records...`)
+    console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} records via OpenCage...`)
     const seen = new Map()
     for (const r of pending) {
-      const key = `${parseFloat(r.lat).toFixed(2)},${parseFloat(r.lng).toFixed(2)}`
+      const key = `${parseFloat(r.lat).toFixed(3)},${parseFloat(r.lng).toFixed(3)}`
       const mun = seen.has(key) ? seen.get(key) : await getMunicipality(r.lat, r.lng)
       seen.set(key, mun)
       db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, r.id])
