@@ -135,19 +135,30 @@ function parseRows(rows) {
 // ── Background geocoding — runs after records are saved ───────────────
 async function geocodePendingRecords() {
   try {
-    const pending = db.all(`SELECT id, lat, lng FROM scan_records WHERE municipality IS NULL LIMIT 50`)
+    const pending = db.all(`SELECT id, lat, lng FROM scan_records WHERE municipality IS NULL`)
     if (pending.length === 0) return
-    console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} records via OpenCage...`)
-    const seen = new Map()
+    console.log(`[Sheets Sync] 🌍 Geocoding ${pending.length} pending records via OpenCage...`)
+
+    // Group records by rounded coord — only 1 API call per unique area
+    const coordGroups = new Map()
     for (const r of pending) {
-      const key = `${parseFloat(r.lat).toFixed(4)},${parseFloat(r.lng).toFixed(4)}`
-      const mun = seen.has(key) ? seen.get(key) : await getMunicipality(r.lat, r.lng)
-      seen.set(key, mun)
-      db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, r.id])
-      await new Promise(res => setTimeout(res, 1100)) // Respect 1 req/sec rate limit
+      const key = `${parseFloat(r.lat).toFixed(3)},${parseFloat(r.lng).toFixed(3)}`
+      if (!coordGroups.has(key)) coordGroups.set(key, { lat: r.lat, lng: r.lng, ids: [] })
+      coordGroups.get(key).ids.push(r.id)
+    }
+
+    console.log(`[Sheets Sync] 🔑 ${coordGroups.size} unique coords to geocode`)
+    let done = 0
+    for (const [, group] of coordGroups) {
+      const mun = await getMunicipality(group.lat, group.lng)
+      for (const id of group.ids) {
+        db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, id])
+      }
+      done += group.ids.length
+      await new Promise(res => setTimeout(res, 1100)) // 1 req/sec rate limit
     }
     db.save()
-    console.log(`[Sheets Sync] ✅ Geocoded ${pending.length} records`)
+    console.log(`[Sheets Sync] ✅ Geocoded ${done} records (${coordGroups.size} API calls)`)
   } catch (err) {
     console.error('[Sheets Sync] Geocode error:', err.message)
   }
