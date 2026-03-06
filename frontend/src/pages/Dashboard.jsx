@@ -305,14 +305,23 @@ function RecordModal({ record, onSave, onClose }) {
 
           {/* Municipality */}
           <div className={`rounded-xl px-4 py-3 border text-sm ${munLoading ? 'bg-blue-50 border-blue-100' : municipality ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">📍 Municipality</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">📍 Location</p>
             {munLoading ? (
               <div className="flex items-center gap-2 text-blue-600 text-xs">
                 <span className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
                 Detecting municipality...
               </div>
             ) : municipality ? (
-              <p className="font-semibold text-gray-800 text-sm">{municipality}</p>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">
+                  {municipality.includes(',') ? municipality.split(',')[0].trim() : municipality}
+                </p>
+                {municipality.includes(',') && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {municipality.split(',').slice(1).join(',').trim()}
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-gray-400 text-xs">Enter coordinates to detect</p>
             )}
@@ -738,7 +747,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                       <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-50 flex items-center justify-center text-base flex-shrink-0">📍</div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-gray-800 text-xs sm:text-sm truncate">
-                          {municipality}
+                          {municipality.includes(',') ? municipality.split(',')[0] : municipality}
+                          {municipality.includes(',') && (
+                            <span className="text-gray-400 font-normal text-xs ml-1">
+                              {municipality.split(',').slice(1).join(',').trim()}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-1.5 items-center">
                           <span>{date}</span>
@@ -880,7 +894,20 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                           </span>
                         </td>
                         <td className="px-4 sm:px-5 py-3 hidden sm:table-cell">
-                          <div className="font-medium text-gray-800 text-xs sm:text-sm">{r.municipality || <span className="text-orange-400 text-xs">⏳ Geocoding...</span>}</div>
+                          {r.municipality ? (
+                            <div>
+                              <div className="font-medium text-gray-800 text-xs sm:text-sm">
+                                {r.municipality.includes(',') ? r.municipality.split(',')[0] : r.municipality}
+                              </div>
+                              {r.municipality.includes(',') && (
+                                <div className="text-gray-400 text-xs">
+                                  {r.municipality.split(',').slice(1).join(',').trim()}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-orange-400 text-xs">⏳ Geocoding...</span>
+                          )}
                         </td>
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lat}</td>
                         <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">{r.lng}</td>
