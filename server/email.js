@@ -16,12 +16,12 @@ function getClient() {
 }
 
 function buildEmail({ to, subject, html }) {
-  const email = new SendSmtpEmail()
-  email.sender = { name: 'TalongGuard System', email: 'owenespiritu323@gmail.com' }
-  email.to = [{ email: to }]
-  email.subject = subject
-  email.htmlContent = html
-  return email
+  return {
+    from: '"TalongGuard System" <owenespiritu323@gmail.com>',
+    to,
+    subject,
+    html,
+  }
 }
 
 // ── Send welcome email with temp password ────────────────────────────
@@ -87,7 +87,7 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
     </body>
     </html>
   `
-  await getClient().sendTransacEmail(
+  await getClient().sendMail(
     buildEmail({ to, subject: '🍆 Your TalongGuard Account is Ready', html })
   )
 }
@@ -128,7 +128,7 @@ async function sendPasswordResetEmail({ to, name, resetToken }) {
     </body>
     </html>
   `
-  await getClient().sendTransacEmail(
+  await getClient().sendMail(
     buildEmail({ to, subject: '🔐 Reset Your TalongGuard Password', html })
   )
 }
@@ -172,7 +172,7 @@ async function sendVerificationCode({ to, name, code }) {
     </body>
     </html>
   `
-  await getClient().sendTransacEmail(
+  await getClient().sendMail(
     buildEmail({ to, subject: `🔐 Your TalongGuard Verification Code: ${code}`, html })
   )
 }
