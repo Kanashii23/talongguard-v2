@@ -1,27 +1,24 @@
-const nodemailer = require('nodemailer')
+const axios = require('axios')
 require('dotenv').config()
 
 const APP_URL = process.env.APP_URL || 'https://talongguard-v2-oakf.vercel.app'
 
-function getClient() {
-  return nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_PASSWORD,
+async function sendEmail({ to, subject, html }) {
+  await axios.post(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      sender: { name: 'TalongGuard System', email: 'owenespiritu323@gmail.com' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
     },
-  })
-}
-
-function buildEmail({ to, subject, html }) {
-  return {
-    from: '"TalongGuard System" <owenespiritu323@gmail.com>',
-    to,
-    subject,
-    html,
-  }
+    {
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    }
+  )
 }
 
 // ── Send welcome email with temp password ────────────────────────────
@@ -87,9 +84,7 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
     </body>
     </html>
   `
-  await getClient().sendMail(
-    buildEmail({ to, subject: '🍆 Your TalongGuard Account is Ready', html })
-  )
+  await sendEmail({ to, subject: '🍆 Your TalongGuard Account is Ready', html })
 }
 
 // ── Send password reset email ────────────────────────────────────────
@@ -128,9 +123,7 @@ async function sendPasswordResetEmail({ to, name, resetToken }) {
     </body>
     </html>
   `
-  await getClient().sendMail(
-    buildEmail({ to, subject: '🔐 Reset Your TalongGuard Password', html })
-  )
+  await sendEmail({ to, subject: '🔐 Reset Your TalongGuard Password', html })
 }
 
 // ── Send email verification code ─────────────────────────────────────
@@ -172,9 +165,7 @@ async function sendVerificationCode({ to, name, code }) {
     </body>
     </html>
   `
-  await getClient().sendMail(
-    buildEmail({ to, subject: `🔐 Your TalongGuard Verification Code: ${code}`, html })
-  )
+  await sendEmail({ to, subject: `🔐 Your TalongGuard Verification Code: ${code}`, html })
 }
 
 module.exports = { sendWelcomeEmail, sendPasswordResetEmail, sendVerificationCode }
