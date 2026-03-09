@@ -1,21 +1,21 @@
-const SibApiV3Sdk = require('@getbrevo/brevo')
+const brevo = require('@getbrevo/brevo')
+const apiInstance = new brevo.TransactionalEmailsApi()
 require('dotenv').config()
 
 const APP_URL = process.env.APP_URL || 'https://talongguard-v2-oakf.vercel.app'
 
 function getClient() {
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
   apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY
   return apiInstance
 }
 
 function buildEmail({ to, subject, html }) {
-  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
-  sendSmtpEmail.sender = { name: 'TalongGuard System', email: 'owenespiritu323@gmail.com' }
-  sendSmtpEmail.to = [{ email: to }]
-  sendSmtpEmail.subject = subject
-  sendSmtpEmail.htmlContent = html
-  return sendSmtpEmail
+  return {
+    sender: { name: 'TalongGuard System', email: 'owenespiritu323@gmail.com' },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  }
 }
 
 // ── Send welcome email with temp password ────────────────────────────
