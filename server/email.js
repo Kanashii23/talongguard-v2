@@ -1,20 +1,13 @@
-const nodemailer = require('nodemailer')
+const { Resend } = require('resend')
 require('dotenv').config()
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  })
-}
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+const FROM = 'TalongGuard System <onboarding@resend.dev>'
+const APP_URL = process.env.APP_URL || 'https://talongguard-v2-oakf.vercel.app'
 
 // ── Send welcome email with temp password ────────────────────────────
 async function sendWelcomeEmail({ to, name, email, tempPassword }) {
-  const transporter = createTransporter()
-
   const html = `
     <!DOCTYPE html>
     <html>
@@ -26,8 +19,6 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
         <tr><td align="center">
           <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-            <!-- Header -->
             <tr>
               <td style="background:linear-gradient(135deg,#15803d,#7e22ce);padding:40px;text-align:center;">
                 <div style="font-size:40px;margin-bottom:12px;">🍆</div>
@@ -35,8 +26,6 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
                 <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:14px;">Eggplant Disease Detection System</p>
               </td>
             </tr>
-
-            <!-- Body -->
             <tr>
               <td style="padding:40px;">
                 <h2 style="color:#111;font-size:20px;margin:0 0 8px;">Welcome, ${name}! 👋</h2>
@@ -44,8 +33,6 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
                   Your Agriculturist account has been created by the system administrator.
                   You can now log in to TalongGuard and access the disease detection dashboard.
                 </p>
-
-                <!-- Credentials Box -->
                 <div style="background:#f8faf8;border:2px solid #e5f0e5;border-radius:12px;padding:24px;margin-bottom:28px;">
                   <p style="color:#15803d;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px;">Your Login Credentials</p>
                   <table width="100%" cellpadding="0" cellspacing="0">
@@ -63,33 +50,25 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
                     </tr>
                   </table>
                 </div>
-
-                <!-- Warning -->
                 <div style="background:#fff8ed;border-left:4px solid #f59e0b;padding:16px;border-radius:0 8px 8px 0;margin-bottom:28px;">
                   <p style="color:#92400e;font-size:13px;margin:0;font-weight:600;">⚠️ Important</p>
                   <p style="color:#92400e;font-size:13px;margin:6px 0 0;">You will be asked to change your password after your first login. Please keep your credentials safe.</p>
                 </div>
-
-                <!-- CTA Button -->
                 <div style="text-align:center;margin-bottom:28px;">
-                  <a href="http://localhost:5173/login" style="background:linear-gradient(135deg,#15803d,#166534);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;display:inline-block;">
+                  <a href="${APP_URL}/login" style="background:linear-gradient(135deg,#15803d,#166534);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;display:inline-block;">
                     Log In to TalongGuard →
                   </a>
                 </div>
-
                 <p style="color:#aaa;font-size:12px;text-align:center;margin:0;">
                   If you did not expect this email, please contact your system administrator.
                 </p>
               </td>
             </tr>
-
-            <!-- Footer -->
             <tr>
               <td style="background:#f8faf8;padding:20px;text-align:center;border-top:1px solid #eee;">
                 <p style="color:#aaa;font-size:12px;margin:0;">© 2026 TalongGuard — Nueva Ecija, Philippines</p>
               </td>
             </tr>
-
           </table>
         </td></tr>
       </table>
@@ -97,8 +76,8 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
     </html>
   `
 
-  await transporter.sendMail({
-    from: `"TalongGuard System" <${process.env.GMAIL_USER}>`,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: '🍆 Your TalongGuard Account is Ready',
     html,
@@ -107,9 +86,7 @@ async function sendWelcomeEmail({ to, name, email, tempPassword }) {
 
 // ── Send password reset email ────────────────────────────────────────
 async function sendPasswordResetEmail({ to, name, resetToken }) {
-  const transporter = createTransporter()
-
-  const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`
+  const resetUrl = `${APP_URL}/reset-password?token=${resetToken}`
 
   const html = `
     <!DOCTYPE html>
@@ -145,20 +122,16 @@ async function sendPasswordResetEmail({ to, name, resetToken }) {
     </html>
   `
 
-  await transporter.sendMail({
-    from: `"TalongGuard System" <${process.env.GMAIL_USER}>`,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: '🔐 Reset Your TalongGuard Password',
     html,
   })
 }
 
-
-
 // ── Send email verification code ─────────────────────────────────────
 async function sendVerificationCode({ to, name, code }) {
-  const transporter = createTransporter()
-
   const html = `
     <!DOCTYPE html>
     <html>
@@ -179,19 +152,15 @@ async function sendVerificationCode({ to, name, code }) {
                 <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 28px;">
                   An admin is creating an account for you on TalongGuard. Use the verification code below to confirm your email address.
                 </p>
-
-                <!-- Code box -->
                 <div style="background:#f0fdf4;border:2px dashed #86efac;border-radius:16px;padding:28px;text-align:center;margin-bottom:28px;">
                   <p style="color:#15803d;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">Your Verification Code</p>
                   <div style="font-size:48px;font-weight:900;letter-spacing:12px;color:#111827;font-family:monospace;">${code}</div>
                   <p style="color:#9ca3af;font-size:12px;margin:12px 0 0;">Expires in <strong>10 minutes</strong></p>
                 </div>
-
                 <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:20px;">
                   <p style="color:#92400e;font-size:13px;margin:0;font-weight:600;">⚠️ Do not share this code</p>
                   <p style="color:#92400e;font-size:12px;margin:4px 0 0;">If you did not expect this, contact your system administrator.</p>
                 </div>
-
                 <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">© 2026 TalongGuard — Nueva Ecija, Philippines</p>
               </td>
             </tr>
@@ -202,8 +171,8 @@ async function sendVerificationCode({ to, name, code }) {
     </html>
   `
 
-  await transporter.sendMail({
-    from: `"TalongGuard System" <${process.env.GMAIL_USER}>`,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: `🔐 Your TalongGuard Verification Code: ${code}`,
     html,
