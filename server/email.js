@@ -1,4 +1,5 @@
-const brevo = require('@getbrevo/brevo')
+const brevoModule = require('@getbrevo/brevo')
+const brevo = brevoModule.default || brevoModule
 const apiInstance = new brevo.TransactionalEmailsApi()
 require('dotenv').config()
 
