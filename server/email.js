@@ -11,7 +11,7 @@ function getClient() {
 
 function buildEmail({ to, subject, html }) {
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
-  sendSmtpEmail.sender = { name: 'TalongGuard System', email: 'noreply@talongguard.com' }
+  sendSmtpEmail.sender = { name: 'TalongGuard System', email: 'owenespiritu323@gmail.com' }
   sendSmtpEmail.to = [{ email: to }]
   sendSmtpEmail.subject = subject
   sendSmtpEmail.htmlContent = html
