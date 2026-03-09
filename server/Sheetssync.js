@@ -1757,12 +1757,13 @@ async function geocodePendingRecords() {
 
 function saveRecords(records) {
   const editedRows = db.all(`SELECT lat, lng, scanned_at FROM scan_records WHERE is_edited = 1`)
-  const editedKeys = new Set(editedRows.map(r => `${r.lat},${r.lng},${r.scanned_at}`))
+  const editedKeys = new Set(
+    editedRows.map(r => `${parseFloat(r.lat).toFixed(6)},${parseFloat(r.lng).toFixed(6)},${r.scanned_at}`)
+  )
   let inserted = 0, skipped = 0
   for (const r of records) {
-    const key = `${r.lat},${r.lng},${r.scanned_at}`
+    const key = `${parseFloat(r.lat).toFixed(6)},${parseFloat(r.lng).toFixed(6)},${r.scanned_at}`
     if (editedKeys.has(key)) { skipped++; continue }
-    // Preserve existing municipality if already geocoded
     const existing = db.get(`SELECT municipality FROM scan_records WHERE lat=? AND lng=? AND scanned_at=?`, [r.lat, r.lng, r.scanned_at])
     const municipality = r.municipality || (existing && existing.municipality) || null
     db.run(
