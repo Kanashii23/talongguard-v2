@@ -528,55 +528,70 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, [filtered, timelineFilter])
 
   async function handleSaveRecord(form) {
-    if (editingId) {
-      const updated = {
-        date:         form.date,
-        lat:          parseFloat(form.lat),
-        lng:          parseFloat(form.lng),
-        municipality: form.municipality,
-        healthy:      parseInt(form.healthy)  || 0,
-        insect:       parseInt(form.insect)   || 0,
-        leafspot:     parseInt(form.leafspot) || 0,
-        mosaic:       parseInt(form.mosaic)   || 0,
-        wilt:         parseInt(form.wilt)     || 0,
-        is_edited:    1,
-      }
+  if (editingId) {
+    // Find the original record to preserve municipality if coords didn't change
+    const originalRecord = records.find(r => r.id === editingId)
+    const latChanged = parseFloat(form.lat) !== parseFloat(originalRecord?.lat)
+    const lngChanged = parseFloat(form.lng) !== parseFloat(originalRecord?.lng)
 
-      try {
-        await api.updateScan(editingId, {
-          scanned_at:   updated.date,
-          lat:          updated.lat,
-          lng:          updated.lng,
-          municipality: updated.municipality,
-          healthy:      updated.healthy,
-          insect:       updated.insect,
-          leafspot:     updated.leafspot,
-          mosaic:       updated.mosaic,
-          wilt:         updated.wilt,
-        })
+    // Only use the newly resolved municipality if coordinates actually changed
+    const resolvedMunicipality = (!latChanged && !lngChanged && originalRecord?.municipality)
+      ? originalRecord.municipality
+      : form.municipality
 
-        setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
-        setModalData(null)
-        setEditingId(null)
-        showToast('✅ Record updated')
+    const updated = {
+      date:         form.date,
+      lat:          parseFloat(form.lat),
+      lng:          parseFloat(form.lng),
+      municipality: resolvedMunicipality,
+      healthy:      parseInt(form.healthy)  || 0,
+      insect:       parseInt(form.insect)   || 0,
+      leafspot:     parseInt(form.leafspot) || 0,
+      mosaic:       parseInt(form.mosaic)   || 0,
+      wilt:         parseInt(form.wilt)     || 0,
+      is_edited:    1,
+    }
 
-      } catch (err) {
-        console.error('Save to DB failed:', err)
-        setModalData(null)
-        setEditingId(null)
-        showToast('❌ Failed to save: ' + err.message, 'error')
-      }
-    } else {
+    try {
+      await api.updateScan(editingId, {
+        scanned_at:   updated.date,
+        lat:          updated.lat,
+        lng:          updated.lng,
+        municipality: updated.municipality,
+        healthy:      updated.healthy,
+        insect:       updated.insect,
+        leafspot:     updated.leafspot,
+        mosaic:       updated.mosaic,
+        wilt:         updated.wilt,
+      })
+
+      setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
       setModalData(null)
       setEditingId(null)
-    }
-  }
+      showToast('✅ Record updated')
 
-  function handleDelete(id) {
-    if (!confirm('Delete this record?')) return
+    } catch (err) {
+      console.error('Save to DB failed:', err)
+      setModalData(null)
+      setEditingId(null)
+      showToast('❌ Failed to save: ' + err.message, 'error')
+    }
+  } else {
+    setModalData(null)
+    setEditingId(null)
+  }
+}
+
+async function handleDelete(id) {
+  if (!confirm('Delete this record?')) return
+  try {
+    await api.deleteScan(id)
     setRecords(prev => prev.filter(r => r.id !== id))
     showToast('🗑️ Record deleted')
+  } catch (err) {
+    showToast('❌ Failed to delete: ' + err.message, 'error')
   }
+}
 
   const statsRecords = activeSessionBrgy ? tableRecords : filtered
   const healthy  = activeFilters.has('healthy')  ? statsRecords.reduce((a, r) => a + (parseInt(r.healthy)  || 0), 0) : 0

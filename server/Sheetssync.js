@@ -1767,7 +1767,7 @@ function saveRecords(records) {
     const existing = db.get(`SELECT municipality FROM scan_records WHERE lat=? AND lng=? AND scanned_at=?`, [r.lat, r.lng, r.scanned_at])
     const municipality = r.municipality || (existing && existing.municipality) || null
     db.run(
-      `INSERT OR REPLACE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt, is_edited) VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?, 0)`,
+    `INSERT OR IGNORE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt, is_edited) VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?, 0)`,
       [r.lat, r.lng, municipality, r.scanned_at, r.healthy, r.insect, r.leafspot, r.mosaic, r.wilt]
     )
     inserted++
