@@ -248,15 +248,14 @@ function DiseaseMap({ records, tileType, activeFilters }) {
       : [15.5785, 120.975]
   const tileUrl =
     tileType === 'satellite'
-      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      ? 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
       : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
   return (
     <MapContainer center={center} zoom={15} maxZoom={20} className="leaflet-container">
       <TileLayer
         url={tileUrl}
-        attribution="© OpenStreetMap contributors"
+        attribution={tileType === 'satellite' ? '© Google Maps' : '© OpenStreetMap contributors'}
         maxZoom={20}
-        maxNativeZoom={19}
       />
       <FitBounds records={records} />
       {records.flatMap((r) => {
@@ -276,7 +275,7 @@ function DiseaseMap({ records, tileType, activeFilters }) {
               <CircleMarker
                 key={`${r.id}-${key}`}
                 center={[parseFloat(r.lat), parseFloat(r.lng)]}
-                radius={8}
+                radius={4}
                 pathOptions={{
                   fillColor: cfg.color,
                   color: '#fff',
