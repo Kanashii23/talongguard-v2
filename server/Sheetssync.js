@@ -6,17 +6,17 @@ const db = require('./db')
 // false = Nominatim API (accurate, free, no key needed — use for real rover data)
 const USE_TEST_MODE = true
 
-const SHEET_ID  = '1gcT90rgmRczXM8C0sbMY-j_vk3WyvBUvzm5sXV-ygW0'
+const SHEET_ID = '1gcT90rgmRczXM8C0sbMY-j_vk3WyvBUvzm5sXV-ygW0'
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=tsv`
 
-const COL_DATETIME     = 0
-const COL_LONGITUDE    = 1
-const COL_LATITUDE     = 2
+const COL_DATETIME = 0
+const COL_LONGITUDE = 1
+const COL_LATITUDE = 2
 const COL_HEALTHY_LEAF = 3
-const COL_INSECT_PEST  = 4
-const COL_LEAF_SPOT    = 5
+const COL_INSECT_PEST = 4
+const COL_LEAF_SPOT = 5
 const COL_MOSAIC_VIRUS = 6
-const COL_WILT         = 7
+const COL_WILT = 7
 
 // Nearest-neighbor centroid lookup — no overlaps, every coord maps to exactly one municipality
 // ── Municipality Centroids (auto-generated from Philippines lat/lng CSV) ──────
@@ -523,7 +523,12 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Carmen', province: 'Davao del Norte', lat: 7.367786, lng: 125.702481 },
   { name: 'City of Panabo', province: 'Davao del Norte', lat: 7.347721, lng: 125.609574 },
   { name: 'City of Tagum', province: 'Davao del Norte', lat: 7.426553, lng: 125.784867 },
-  { name: 'Island Garden City of Samal', province: 'Davao del Norte', lat: 7.046869, lng: 125.73283 },
+  {
+    name: 'Island Garden City of Samal',
+    province: 'Davao del Norte',
+    lat: 7.046869,
+    lng: 125.73283,
+  },
   { name: 'Kapalong', province: 'Davao del Norte', lat: 7.759235, lng: 125.609687 },
   { name: 'New Corella', province: 'Davao del Norte', lat: 7.609833, lng: 125.870383 },
   { name: 'San Isidro', province: 'Davao del Norte', lat: 7.743001, lng: 125.710485 },
@@ -903,11 +908,21 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Barira', province: 'Maguindanao del Norte', lat: 7.458715, lng: 124.322896 },
   { name: 'Buldon', province: 'Maguindanao del Norte', lat: 7.45028, lng: 124.412279 },
   { name: 'City of Cotabato', province: 'Maguindanao del Norte', lat: 7.215262, lng: 124.230879 },
-  { name: 'Datu Blah T. Sinsuat', province: 'Maguindanao del Norte', lat: 6.923849, lng: 124.017643 },
+  {
+    name: 'Datu Blah T. Sinsuat',
+    province: 'Maguindanao del Norte',
+    lat: 6.923849,
+    lng: 124.017643,
+  },
   { name: 'Datu Odin Sinsuat', province: 'Maguindanao del Norte', lat: 7.109921, lng: 124.224945 },
   { name: 'Kabuntalan', province: 'Maguindanao del Norte', lat: 7.124202, lng: 124.368698 },
   { name: 'Matanog', province: 'Maguindanao del Norte', lat: 7.489093, lng: 124.246974 },
-  { name: 'Northern Kabuntalan', province: 'Maguindanao del Norte', lat: 7.161044, lng: 124.423663 },
+  {
+    name: 'Northern Kabuntalan',
+    province: 'Maguindanao del Norte',
+    lat: 7.161044,
+    lng: 124.423663,
+  },
   { name: 'Parang', province: 'Maguindanao del Norte', lat: 7.371348, lng: 124.285389 },
   { name: 'Sultan Kudarat', province: 'Maguindanao del Norte', lat: 7.277935, lng: 124.32447 },
   { name: 'Sultan Mastura', province: 'Maguindanao del Norte', lat: 7.294037, lng: 124.264232 },
@@ -916,7 +931,12 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Ampatuan', province: 'Maguindanao del Sur', lat: 6.815006, lng: 124.45791 },
   { name: 'Buluan', province: 'Maguindanao del Sur', lat: 6.711216, lng: 124.808524 },
   { name: 'Datu Abdullah Sangki', province: 'Maguindanao del Sur', lat: 6.8502, lng: 124.545356 },
-  { name: 'Datu Anggal Midtimbang', province: 'Maguindanao del Sur', lat: 7.027329, lng: 124.374873 },
+  {
+    name: 'Datu Anggal Midtimbang',
+    province: 'Maguindanao del Sur',
+    lat: 7.027329,
+    lng: 124.374873,
+  },
   { name: 'Datu Hoffer Ampatuan', province: 'Maguindanao del Sur', lat: 6.847475, lng: 124.380693 },
   { name: 'Datu Paglas', province: 'Maguindanao del Sur', lat: 6.728901, lng: 124.897392 },
   { name: 'Datu Piang', province: 'Maguindanao del Sur', lat: 7.030035, lng: 124.480219 },
@@ -933,7 +953,12 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Pandag', province: 'Maguindanao del Sur', lat: 6.743446, lng: 124.817348 },
   { name: 'Rajah Buayan', province: 'Maguindanao del Sur', lat: 6.913625, lng: 124.555256 },
   { name: 'Shariff Aguak', province: 'Maguindanao del Sur', lat: 6.878857, lng: 124.468122 },
-  { name: 'Shariff Saydona Mustapha', province: 'Maguindanao del Sur', lat: 6.951853, lng: 124.511476 },
+  {
+    name: 'Shariff Saydona Mustapha',
+    province: 'Maguindanao del Sur',
+    lat: 6.951853,
+    lng: 124.511476,
+  },
   { name: 'South Upi', province: 'Maguindanao del Sur', lat: 6.834048, lng: 124.23955 },
   { name: 'Sultan Sa Barongis', province: 'Maguindanao del Sur', lat: 6.911859, lng: 124.62825 },
   { name: 'Talayan', province: 'Maguindanao del Sur', lat: 6.961449, lng: 124.346218 },
@@ -990,7 +1015,12 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'City of Tangub', province: 'Misamis Occidental', lat: 8.104294, lng: 123.695209 },
   { name: 'Clarin', province: 'Misamis Occidental', lat: 8.213179, lng: 123.771623 },
   { name: 'Concepcion', province: 'Misamis Occidental', lat: 8.410972, lng: 123.606214 },
-  { name: 'Don Victoriano Chiongbian', province: 'Misamis Occidental', lat: 8.288866, lng: 123.626144 },
+  {
+    name: 'Don Victoriano Chiongbian',
+    province: 'Misamis Occidental',
+    lat: 8.288866,
+    lng: 123.626144,
+  },
   { name: 'Jimenez', province: 'Misamis Occidental', lat: 8.332782, lng: 123.78151 },
   { name: 'Lopez Jaena', province: 'Misamis Occidental', lat: 8.48592, lng: 123.694863 },
   { name: 'Panaon', province: 'Misamis Occidental', lat: 8.355903, lng: 123.768228 },
@@ -1098,7 +1128,7 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'City of Kidapawan', province: 'North Cotabato', lat: 7.049717, lng: 125.050579 },
   { name: 'Kabacan', province: 'North Cotabato', lat: 7.131917, lng: 124.855701 },
   { name: 'Libungan', province: 'North Cotabato', lat: 7.295517, lng: 124.572167 },
-  { name: 'M\'Lang', province: 'North Cotabato', lat: 6.978689, lng: 124.911195 },
+  { name: "M'Lang", province: 'North Cotabato', lat: 6.978689, lng: 124.911195 },
   { name: 'Magpet', province: 'North Cotabato', lat: 7.156952, lng: 125.164618 },
   { name: 'Makilala', province: 'North Cotabato', lat: 6.933956, lng: 125.130789 },
   { name: 'Matalam', province: 'North Cotabato', lat: 7.182066, lng: 124.943025 },
@@ -1208,7 +1238,7 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Araceli', province: 'Palawan', lat: 10.575143, lng: 119.912307 },
   { name: 'Balabac', province: 'Palawan', lat: 7.945655, lng: 117.014009 },
   { name: 'Bataraza', province: 'Palawan', lat: 8.517645, lng: 117.398192 },
-  { name: 'Brooke\'S Point', province: 'Palawan', lat: 8.841083, lng: 117.866784 },
+  { name: "Brooke'S Point", province: 'Palawan', lat: 8.841083, lng: 117.866784 },
   { name: 'Busuanga', province: 'Palawan', lat: 12.188069, lng: 119.936329 },
   { name: 'Cagayancillo', province: 'Palawan', lat: 9.584534, lng: 121.202682 },
   { name: 'Coron', province: 'Palawan', lat: 12.073777, lng: 120.18791 },
@@ -1431,7 +1461,7 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Polomolok', province: 'South Cotabato', lat: 6.228156, lng: 125.040531 },
   { name: 'Santo Niño', province: 'South Cotabato', lat: 6.457614, lng: 124.693622 },
   { name: 'Surallah', province: 'South Cotabato', lat: 6.336582, lng: 124.747631 },
-  { name: 'T\'Boli', province: 'South Cotabato', lat: 6.206005, lng: 124.891282 },
+  { name: "T'Boli", province: 'South Cotabato', lat: 6.206005, lng: 124.891282 },
   { name: 'Tampakan', province: 'South Cotabato', lat: 6.461035, lng: 125.029193 },
   { name: 'Tantangan', province: 'South Cotabato', lat: 6.533436, lng: 124.789674 },
   { name: 'Tupi', province: 'South Cotabato', lat: 6.349125, lng: 124.989436 },
@@ -1582,7 +1612,12 @@ const MUNICIPALITY_CENTROIDS = [
   { name: 'Mutia', province: 'Zamboanga del Norte', lat: 8.390534, lng: 123.509453 },
   { name: 'Piñan', province: 'Zamboanga del Norte', lat: 8.400392, lng: 123.459592 },
   { name: 'Polanco', province: 'Zamboanga del Norte', lat: 8.441939, lng: 123.404602 },
-  { name: 'Pres. Manuel A. Roxas', province: 'Zamboanga del Norte', lat: 8.432112, lng: 123.192976 },
+  {
+    name: 'Pres. Manuel A. Roxas',
+    province: 'Zamboanga del Norte',
+    lat: 8.432112,
+    lng: 123.192976,
+  },
   { name: 'Rizal', province: 'Zamboanga del Norte', lat: 8.532717, lng: 123.53487 },
   { name: 'Salug', province: 'Zamboanga del Norte', lat: 8.06881, lng: 122.80308 },
   { name: 'Sergio Osmeña Sr.', province: 'Zamboanga del Norte', lat: 8.292977, lng: 123.395756 },
@@ -1641,11 +1676,16 @@ const MUNICIPALITY_CENTROIDS = [
 
 // Returns "Municipality, Province" for nearest centroid
 function getMunicipalityFromCentroids(lat, lng) {
-  const flat = parseFloat(lat), flng = parseFloat(lng)
-  let best = null, bestDist = Infinity
+  const flat = parseFloat(lat),
+    flng = parseFloat(lng)
+  let best = null,
+    bestDist = Infinity
   for (const m of MUNICIPALITY_CENTROIDS) {
     const dist = (m.lat - flat) ** 2 + (m.lng - flng) ** 2
-    if (dist < bestDist) { bestDist = dist; best = m }
+    if (dist < bestDist) {
+      bestDist = dist
+      best = m
+    }
   }
   if (!best) return null
   return best.province ? `${best.name}, ${best.province}` : best.name
@@ -1667,7 +1707,9 @@ async function getMunicipality(lat, lng) {
   // NOMINATIM: accurate reverse geocoding, free, no key needed
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
-    const res  = await fetch(url, { headers: { 'User-Agent': 'TalongGuard-Thesis/1.0 (Nueva Ecija PH)' } })
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'TalongGuard-Thesis/1.0 (Nueva Ecija PH)' },
+    })
     const text = await res.text()
     // Guard against HTML/XML error responses
     if (!text || text.trim().startsWith('<')) {
@@ -1676,17 +1718,20 @@ async function getMunicipality(lat, lng) {
     }
     const data = JSON.parse(text)
     if (data && data.address) {
-      const a       = data.address
-      const mun     = a.city || a.town || a.municipality || a.village || a.county || 'Unknown'
+      const a = data.address
+      const mun = a.city || a.town || a.municipality || a.village || a.county || 'Unknown'
       // In Philippines, data.address.state = province (e.g. "Nueva Ecija", "Bulacan")
       const province = a.state || a.county || ''
-      const result   = province && province !== mun ? `${mun}, ${province}` : mun
+      const result = province && province !== mun ? `${mun}, ${province}` : mun
       console.log(`[Geocode] Nominatim ${lat},${lng} -> ${result}`)
       _munCache.set(key, result)
       return result
     }
     return 'Unknown'
-  } catch (e) { console.error('[Geocode] Error:', e.message); return 'Unknown' }
+  } catch (e) {
+    console.error('[Geocode] Error:', e.message)
+    return 'Unknown'
+  }
 }
 
 function parseRows(rows) {
@@ -1700,17 +1745,28 @@ function parseRows(rows) {
     const lng = parseFloat(row[COL_LONGITUDE])
     if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) continue
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) continue
-    const healthy  = parseInt(row[COL_HEALTHY_LEAF] || 0) || 0
-    const insect   = parseInt(row[COL_INSECT_PEST]  || 0) || 0
-    const leafspot = parseInt(row[COL_LEAF_SPOT]    || 0) || 0
-    const mosaic   = parseInt(row[COL_MOSAIC_VIRUS] || 0) || 0
-    const wilt     = parseInt(row[COL_WILT]         || 0) || 0
+    const healthy = parseInt(row[COL_HEALTHY_LEAF] || 0) || 0
+    const insect = parseInt(row[COL_INSECT_PEST] || 0) || 0
+    const leafspot = parseInt(row[COL_LEAF_SPOT] || 0) || 0
+    const mosaic = parseInt(row[COL_MOSAIC_VIRUS] || 0) || 0
+    const wilt = parseInt(row[COL_WILT] || 0) || 0
     if (healthy + insect + leafspot + mosaic + wilt === 0) {
-      console.log(`[Sheets Sync] Skipped zero-count row: ${rawDt}`); continue
+      console.log(`[Sheets Sync] Skipped zero-count row: ${rawDt}`)
+      continue
     }
     // In test mode resolve immediately, in Nominatim mode leave null for background geocoding
-    const municipality = USE_TEST_MODE ? (getMunicipalityFromCentroids(lat, lng) || null) : null
-    records.push({ lat, lng, municipality, scanned_at: rawDt, healthy, insect, leafspot, mosaic, wilt })
+    const municipality = USE_TEST_MODE ? getMunicipalityFromCentroids(lat, lng) || null : null
+    records.push({
+      lat,
+      lng,
+      municipality,
+      scanned_at: rawDt,
+      healthy,
+      insect,
+      leafspot,
+      mosaic,
+      wilt,
+    })
   }
   return records
 }
@@ -1740,59 +1796,82 @@ async function geocodePendingRecords() {
       if (!coordGroups.has(key)) coordGroups.set(key, { lat: r.lat, lng: r.lng, ids: [] })
       coordGroups.get(key).ids.push(r.id)
     }
-    console.log(`[Geocode] ${pending.length} records pending, ${coordGroups.size} unique coords — Nominatim starting...`)
+    console.log(
+      `[Geocode] ${pending.length} records pending, ${coordGroups.size} unique coords — Nominatim starting...`
+    )
     const entries = [...coordGroups.entries()].slice(0, 50) // max 50 per cycle
-    console.log(`[Geocode] Processing ${entries.length} of ${coordGroups.size} coords this cycle...`)
+    console.log(
+      `[Geocode] Processing ${entries.length} of ${coordGroups.size} coords this cycle...`
+    )
     let done = 0
     for (const [, group] of entries) {
       const mun = await getMunicipality(group.lat, group.lng)
-      for (const id of group.ids) db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, id])
+      for (const id of group.ids)
+        db.run(`UPDATE scan_records SET municipality = ? WHERE id = ?`, [mun, id])
       done += group.ids.length
-      await new Promise(res => setTimeout(res, 1200)) // slightly over 1 req/sec to be safe
+      await new Promise((res) => setTimeout(res, 1200)) // slightly over 1 req/sec to be safe
     }
     db.save()
     console.log(`[Geocode] Done this cycle — ${done} records geocoded (more pending on next sync)`)
-  } catch (err) { console.error('[Sheets Sync] Geocode error:', err.message) }
+  } catch (err) {
+    console.error('[Sheets Sync] Geocode error:', err.message)
+  }
 }
 
 function saveRecords(records) {
   const editedRows = db.all(`SELECT lat, lng, scanned_at FROM scan_records WHERE is_edited = 1`)
   const editedKeys = new Set(
-    editedRows.map(r => `${parseFloat(r.lat).toFixed(6)},${parseFloat(r.lng).toFixed(6)},${r.scanned_at}`)
+    editedRows.map(
+      (r) => `${parseFloat(r.lat).toFixed(6)},${parseFloat(r.lng).toFixed(6)},${r.scanned_at}`
+    )
   )
-  let inserted = 0, skipped = 0
+  let inserted = 0,
+    skipped = 0
   for (const r of records) {
     const key = `${parseFloat(r.lat).toFixed(6)},${parseFloat(r.lng).toFixed(6)},${r.scanned_at}`
-    if (editedKeys.has(key)) { skipped++; continue }
-    const existing = db.get(`SELECT municipality FROM scan_records WHERE lat=? AND lng=? AND scanned_at=?`, [r.lat, r.lng, r.scanned_at])
+    if (editedKeys.has(key)) {
+      skipped++
+      continue
+    }
+    const existing = db.get(
+      `SELECT municipality FROM scan_records WHERE lat=? AND lng=? AND scanned_at=?`,
+      [r.lat, r.lng, r.scanned_at]
+    )
     const municipality = r.municipality || (existing && existing.municipality) || null
     db.run(
-    `INSERT OR IGNORE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt, is_edited) VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?, 0)`,
+      `INSERT OR IGNORE INTO scan_records (lat, lng, municipality, scanned_at, source, healthy, insect, leafspot, mosaic, wilt, is_edited) VALUES (?, ?, ?, ?, 'rover', ?, ?, ?, ?, ?, 0)`,
       [r.lat, r.lng, municipality, r.scanned_at, r.healthy, r.insect, r.leafspot, r.mosaic, r.wilt]
     )
     inserted++
   }
   if (inserted > 0) db.save()
-  if (skipped  > 0) console.log(`[Sheets Sync] Skipped ${skipped} manually edited records`)
+  if (skipped > 0) console.log(`[Sheets Sync] Skipped ${skipped} manually edited records`)
   return inserted
 }
 
 async function syncFromSheet() {
   try {
-    const res  = await fetch(SHEET_URL)
+    const res = await fetch(SHEET_URL)
     const text = await res.text()
-    const rows = text.split('\n').map(line => line.split('\t').map(c => c.trim()))
-    const validRows = rows.filter(r => r && r.length >= 8 && r[0] && !r[0].toLowerCase().includes('date'))
+    const rows = text.split('\n').map((line) => line.split('\t').map((c) => c.trim()))
+    const validRows = rows.filter(
+      (r) => r && r.length >= 8 && r[0] && !r[0].toLowerCase().includes('date')
+    )
     console.log(`[Sheets Sync] Sheet has ${validRows.length} valid rows`)
     const records = parseRows(validRows)
     console.log(`[Sheets Sync] Parsed ${records.length} records from ${validRows.length} rows`)
-    if (records.length === 0) { console.log('[Sheets Sync] No records parsed — skipping'); return }
+    if (records.length === 0) {
+      console.log('[Sheets Sync] No records parsed — skipping')
+      return
+    }
     db.run('DELETE FROM scan_records WHERE is_edited = 0')
     db.save()
     const inserted = saveRecords(records)
     console.log(`[Sheets Sync] Synced ${inserted} rows`)
     geocodePendingRecords()
-  } catch (err) { console.error('[Sheets Sync] Error:', err.message) }
+  } catch (err) {
+    console.error('[Sheets Sync] Error:', err.message)
+  }
 }
 
 function startSync() {
@@ -1802,7 +1881,6 @@ function startSync() {
 }
 
 module.exports = { startSync }
-
 
 /* 'use strict'
 const db = require('./db')
@@ -1894,7 +1972,6 @@ const COL_WILT         = 7 */
   { name: 'Talugtug',                            lat: 15.77889, lng: 120.81111 },
   { name: 'Zaragoza',                            lat: 15.45306, lng: 120.79111 },
 ] */
-
 
 /* function getMunicipalityFromCentroids(lat, lng) {
   const flat = parseFloat(lat), flng = parseFloat(lng)
@@ -2053,4 +2130,3 @@ function startSync() {
 }
 
 module.exports = { startSync } */
-
