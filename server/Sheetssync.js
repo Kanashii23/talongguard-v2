@@ -1741,6 +1741,15 @@ function parseRows(rows) {
     if (!row || row.length < 8) continue
     const rawDt = String(row[COL_DATETIME] || '').trim()
     if (!rawDt || rawDt.toLowerCase().includes('date') || rawDt === 'N/A') continue
+
+    // Convert DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM
+    let scannedAt = rawDt
+    const ddmmMatch = rawDt.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}:\d{2})/)
+    if (ddmmMatch) {
+      const [, dd, mm, yyyy, time] = ddmmMatch
+      const paddedTime = time.includes(':') && time.split(':')[0].length === 1 ? '0' + time : time
+      scannedAt = `${yyyy}-${mm}-${dd} ${paddedTime}`
+    }
     const lat = parseFloat(row[COL_LATITUDE])
     const lng = parseFloat(row[COL_LONGITUDE])
     if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) continue
@@ -1760,7 +1769,7 @@ function parseRows(rows) {
       lat,
       lng,
       municipality,
-      scanned_at: rawDt,
+      scanned_at: scannedAt,
       healthy,
       insect,
       leafspot,
