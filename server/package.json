@@ -12,9 +12,10 @@
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.8",
-    "sql.js": "^1.12.0",
-    "node-cron": "^3.0.3"
+    "pg": "^8.20.0",
+    "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
