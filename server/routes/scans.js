@@ -11,8 +11,8 @@ router.get('/', (req, res) => {
     `SELECT id, lat, lng, municipality, scanned_at as date,
             healthy, insect, leafspot, mosaic, wilt, is_edited
      FROM scan_records
-     ORDER BY scanned_at DESC
-     LIMIT 2000`
+     ORDER BY substr(scanned_at,7,4)||substr(scanned_at,4,2)||substr(scanned_at,1,2) DESC
+     LIMIT 5000`
   )
   res.json(records)
 })

@@ -139,7 +139,6 @@ function DiseaseMap({ records, tileType, activeFilters }) {
       <TileLayer url={tileUrl} attribution="© OpenStreetMap contributors" maxZoom={20} maxNativeZoom={19} />
       <FitBounds records={records} />
       {records.flatMap(r => {
-        // One dot per disease per record — only show if disease is in activeFilters
         const diseases = [
           { key: 'healthy',  val: parseInt(r.healthy)  || 0 },
           { key: 'insect',   val: parseInt(r.insect)   || 0 },
@@ -194,14 +193,12 @@ async function fetchMunicipality(lat, lng) {
 }
 
 async function resolveAllMunicipalities(records, setRecords) {
-  // Build map of unique rounded key → one representative coord
   const unique = new Map()
   records.forEach(r => {
     const key = `${parseFloat(r.lat).toFixed(2)},${parseFloat(r.lng).toFixed(2)}`
     if (!unique.has(key)) unique.set(key, { lat: r.lat, lng: r.lng })
   })
 
-  // Fetch all unique coords — stagger by 300ms to avoid Nominatim ban
   const delay = (ms) => new Promise(res => setTimeout(res, ms))
   const entries = [...unique.entries()]
   for (let i = 0; i < entries.length; i++) {
@@ -210,7 +207,6 @@ async function resolveAllMunicipalities(records, setRecords) {
     if (i < entries.length - 1) await delay(300)
   }
 
-  // Apply results to all records at once
   setRecords(prev => prev.map(r => {
     if (r.municipality) return r
     const key = `${parseFloat(r.lat).toFixed(2)},${parseFloat(r.lng).toFixed(2)}`
@@ -221,7 +217,6 @@ async function resolveAllMunicipalities(records, setRecords) {
 
 // ── Record Modal ──────────────────────────────────────────────────────
 function RecordModal({ record, onSave, onClose }) {
-  // Lock body scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
@@ -242,7 +237,6 @@ function RecordModal({ record, onSave, onClose }) {
   const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setInt = (k, v) => setForm(f => ({ ...f, [k]: Math.max(0, parseInt(v) || 0) }))
 
-  // Auto-fetch municipality when lat/lng changes
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lng = parseFloat(form.lng)
@@ -281,15 +275,11 @@ function RecordModal({ record, onSave, onClose }) {
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
         <h3 className="font-display text-xl font-bold text-gray-900 mb-6">Edit Record</h3>
         <div className="space-y-4">
-
-          {/* Date & Time */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Date & Time</label>
             <input type="datetime-local" value={form.date} onChange={e => set('date', e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 transition" />
           </div>
-
-          {/* Lat / Lng */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Latitude</label>
@@ -302,8 +292,6 @@ function RecordModal({ record, onSave, onClose }) {
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 font-mono transition" />
             </div>
           </div>
-
-          {/* Municipality */}
           <div className={`rounded-xl px-4 py-3 border text-sm ${munLoading ? 'bg-blue-50 border-blue-100' : municipality ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">📍 Location</p>
             {munLoading ? (
@@ -326,8 +314,6 @@ function RecordModal({ record, onSave, onClose }) {
               <p className="text-gray-400 text-xs">Enter coordinates to detect</p>
             )}
           </div>
-
-          {/* Disease Counts */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Detection Counts</label>
             <div className="space-y-2">
@@ -350,7 +336,6 @@ function RecordModal({ record, onSave, onClose }) {
               Total: <span className="font-bold text-gray-600">{Object.values({healthy: form.healthy, insect: form.insect, leafspot: form.leafspot, mosaic: form.mosaic, wilt: form.wilt}).reduce((a, b) => a + b, 0)}</span> detections
             </p>
           </div>
-
         </div>
         <div className="flex gap-3 mt-7">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
@@ -380,19 +365,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [timelineFilter, setTimelineFilter] = useState('all')
 
-  // Auto-resolve municipalities for records missing them (e.g. from rover)
   useEffect(() => {
     const missing = records.filter(r => !r.municipality)
     if (missing.length > 0) resolveAllMunicipalities(records, setRecords)
   }, []) // eslint-disable-line
 
-  // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [sidebarOpen])
 
-  // Close sidebar when opening map on mobile, jump to top instantly
   function openMap(date) {
     setActiveMapDate(date)
     setSidebarOpen(false)
@@ -420,7 +402,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       return m.replace(/^(City of |Municipality of )/i, '').trim()
     }
 
-    // Group strictly by date + municipality — all same-mun same-date records merge into ONE session
     const byKey = {}
     filtered.forEach(r => {
       const date = (r.date || r.scanned_at || '').split(' ')[0]
@@ -434,7 +415,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, recs]) => {
         const [date, municipality] = key.split('||')
-        // Average lat/lng of all records in this session for the map center
         const avgLat = recs.reduce((s, r) => s + parseFloat(r.lat), 0) / recs.length
         const avgLng = recs.reduce((s, r) => s + parseFloat(r.lng), 0) / recs.length
         return [key, recs, date, municipality, avgLat, avgLng]
@@ -497,7 +477,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
     let datasets = []
     if (timelineFilter === 'all') {
-      // Show all diseases as separate lines
       datasets = Object.entries(DISEASE_CONFIG).map(([key, cfg]) => {
         const data = dates.map(d => filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[key]) || 0), 0))
         return {
@@ -511,7 +490,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         }
       })
     } else {
-      // Single disease
       const cfg = DISEASE_CONFIG[timelineFilter]
       const data = dates.map(d => filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[timelineFilter]) || 0), 0))
       datasets = [{
@@ -525,7 +503,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       }]
     }
 
-    // Trend: compare last 3 days vs previous 3 days
     const totalByDate = dates.map(d => {
       if (timelineFilter === 'all') return filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r.healthy)||0) + (parseInt(r.insect)||0) + (parseInt(r.leafspot)||0) + (parseInt(r.mosaic)||0) + (parseInt(r.wilt)||0), 0)
       return filtered.filter(r => r.date.startsWith(d)).reduce((a, r) => a + (parseInt(r[timelineFilter]) || 0), 0)
@@ -566,7 +543,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       }
 
       try {
-        // 1. Save to DB FIRST — mark as edited so sync can never overwrite it
         await api.updateScan(editingId, {
           scanned_at:   updated.date,
           lat:          updated.lat,
@@ -579,7 +555,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           wilt:         updated.wilt,
         })
 
-        // 2. Update local state AFTER DB confirms — guaranteed to persist
         setRecords(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r))
         setModalData(null)
         setEditingId(null)
@@ -604,7 +579,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }
 
   const statsRecords = activeSessionBrgy ? tableRecords : filtered
-  // Only count columns that are actively selected in the filter
   const healthy  = activeFilters.has('healthy')  ? statsRecords.reduce((a, r) => a + (parseInt(r.healthy)  || 0), 0) : 0
   const insect   = activeFilters.has('insect')   ? statsRecords.reduce((a, r) => a + (parseInt(r.insect)   || 0), 0) : 0
   const leafspot = activeFilters.has('leafspot') ? statsRecords.reduce((a, r) => a + (parseInt(r.leafspot) || 0), 0) : 0
@@ -621,8 +595,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   return (
     <div className="page-enter min-h-screen bg-gray-50">
-
-
 
       {/* Mobile top bar with filter button */}
       <div className="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3 fixed top-16 left-0 right-0 z-20 shadow-sm">
@@ -662,7 +634,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
             <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl overflow-y-auto"
               style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
               onClick={e => e.stopPropagation()}>
-              {/* Drawer header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
                 <span className="font-display font-bold text-gray-900">Filters & Settings</span>
                 <button onClick={() => setSidebarOpen(false)}
@@ -678,7 +649,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         {/* ── Main content ── */}
         <main className="flex-1 pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
 
-          {/* Stats cards — always visible */}
+          {/* Stats cards */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {[
               { icon: '🌿', val: totalSamples,        lbl: 'Total Samples',    iconBg: 'bg-green-50' },
@@ -695,7 +666,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
             ))}
           </div>
 
-          {/* Map view — shown below stats when active */}
+          {/* Map view */}
           {activeMapDate && (
             <div ref={mapRef} className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm mb-4 sm:mb-6 overflow-hidden">
               <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
@@ -723,7 +694,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               </span>
             </div>
 
-            {/* Session list */}
             {!activeMapDate && (
               <div>
                 {sessions.length === 0 ? (
@@ -780,8 +750,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 })}
               </div>
             )}
-
-
           </div>
 
           {/* Charts */}
@@ -791,7 +759,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               <Doughnut data={pieData} options={{ responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } } } }} />
             </div>
             <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm">
-              {/* Header + trend */}
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-semibold text-gray-800 text-sm">Scan Timeline</h3>
@@ -801,7 +768,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   </div>
                 </div>
               </div>
-              {/* Disease toggle buttons */}
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <button onClick={() => setTimelineFilter('all')}
                   className={`text-xs px-2.5 py-1 rounded-full font-semibold border transition-all ${
@@ -940,7 +906,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               </table>
             </div>
 
-            {/* Pagination controls */}
             {tableRecords.length > pageSize && (
               <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-gray-100">
                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -963,7 +928,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         </main>
       </div>
 
-      {/* Record modal — rendered via portal directly on body so fixed positioning always works */}
       {modalData !== null && createPortal(
         <RecordModal record={modalData || null} onSave={handleSaveRecord} onClose={() => { setModalData(null); setEditingId(null) }} />,
         document.body
