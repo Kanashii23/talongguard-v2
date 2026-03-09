@@ -1,12 +1,18 @@
-const { TransactionalEmailsApi, SendSmtpEmail } = require('@getbrevo/brevo')
-const apiInstance = new TransactionalEmailsApi()
+const nodemailer = require('nodemailer')
 require('dotenv').config()
 
 const APP_URL = process.env.APP_URL || 'https://talongguard-v2-oakf.vercel.app'
 
 function getClient() {
-  apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY
-  return apiInstance
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_SMTP_USER,
+      pass: process.env.BREVO_SMTP_PASSWORD,
+    },
+  })
 }
 
 function buildEmail({ to, subject, html }) {
