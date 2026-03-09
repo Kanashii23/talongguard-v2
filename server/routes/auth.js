@@ -1,9 +1,9 @@
 require('dotenv').config()
 const express = require('express')
-const bcrypt  = require('bcryptjs')
-const jwt     = require('jsonwebtoken')
-const crypto  = require('crypto')
-const db      = require('../db')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
+const db = require('../db')
 const { authMiddleware } = require('../middleware/authMiddleware')
 const { sendPasswordResetEmail } = require('../email')
 
@@ -14,17 +14,22 @@ router.post('/login', (req, res) => {
   const { email, password } = req.body
   const ip = req.ip
 
-  if (!email || !password)
-    return res.status(400).json({ error: 'Email and password are required' })
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' })
 
-  const user = db.get('SELECT * FROM users WHERE email = ? AND is_active = 1', [email.toLowerCase().trim()])
+  const user = db.get('SELECT * FROM users WHERE email = ? AND is_active = 1', [
+    email.toLowerCase().trim(),
+  ])
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     db.run('INSERT INTO login_logs (email, success, ip) VALUES (?, 0, ?)', [email, ip])
     return res.status(401).json({ error: 'Invalid email or password' })
   }
 
-  db.run('INSERT INTO login_logs (user_id, email, success, ip) VALUES (?, ?, 1, ?)', [user.id, email, ip])
+  db.run('INSERT INTO login_logs (user_id, email, success, ip) VALUES (?, ?, 1, ?)', [
+    user.id,
+    email,
+    ip,
+  ])
 
   const token = jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -40,7 +45,7 @@ router.post('/login', (req, res) => {
       email: user.email,
       role: user.role,
       mustChangePassword: user.must_change_password === 1,
-    }
+    },
   })
 })
 
@@ -79,14 +84,20 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body
   if (!email) return res.status(400).json({ error: 'Email is required' })
 
-  const user = db.get('SELECT * FROM users WHERE email = ? AND is_active = 1', [email.toLowerCase().trim()])
+  const user = db.get('SELECT * FROM users WHERE email = ? AND is_active = 1', [
+    email.toLowerCase().trim(),
+  ])
   if (!user) return res.json({ message: 'If that email exists, a reset link has been sent.' })
 
-  const token     = crypto.randomBytes(32).toString('hex')
+  const token = crypto.randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + 3600000).toISOString()
 
   db.run('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?', [user.id])
-  db.run('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [user.id, token, expiresAt])
+  db.run('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [
+    user.id,
+    token,
+    expiresAt,
+  ])
   db.save()
 
   try {
@@ -104,7 +115,8 @@ router.post('/forgot-password', async (req, res) => {
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
       hint = 'GMAIL_USER or GMAIL_APP_PASSWORD is missing in your .env file'
     } else if (err.code === 'EAUTH' || err.responseCode === 535) {
-      hint = 'Gmail App Password is wrong. Make sure you are using an App Password (16 chars), NOT your real Gmail password'
+      hint =
+        'Gmail App Password is wrong. Make sure you are using an App Password (16 chars), NOT your real Gmail password'
     } else if (err.code === 'ECONNECTION' || err.code === 'ESOCKET') {
       hint = 'Cannot connect to Gmail. Check your internet connection'
     } else if (err.responseCode === 550 || err.responseCode === 553) {
@@ -124,22 +136,27 @@ router.post('/reset-password', (req, res) => {
   if (!token || !newPassword || newPassword.length < 8)
     return res.status(400).json({ error: 'Token and new password (min 8 chars) are required' })
 
-  const record = db.get(`
+  const record = db.get(
+    `
     SELECT prt.*, u.id as userId FROM password_reset_tokens prt
     JOIN users u ON u.id = prt.user_id
     WHERE prt.token = ? AND prt.used = 0 AND prt.expires_at > datetime('now')
-  `, [token])
+  `,
+    [token]
+  )
 
   if (!record) return res.status(400).json({ error: 'Invalid or expired reset token' })
 
   const hashed = bcrypt.hashSync(newPassword, 12)
-  db.run('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [hashed, record.userId])
+  db.run('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [
+    hashed,
+    record.userId,
+  ])
   db.run('UPDATE password_reset_tokens SET used = 1 WHERE token = ?', [token])
   db.save()
 
   res.json({ message: 'Password reset successfully. You can now log in.' })
 })
-
 
 // ── GET /api/auth/test-email ── Test Gmail config ────────────────────
 router.get('/test-email', async (req, res) => {
@@ -151,7 +168,7 @@ router.get('/test-email', async (req, res) => {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     return res.status(500).json({
       ok: false,
-      error: 'GMAIL_USER or GMAIL_APP_PASSWORD is not set in .env'
+      error: 'GMAIL_USER or GMAIL_APP_PASSWORD is not set in .env',
     })
   }
 
@@ -173,9 +190,10 @@ router.get('/test-email', async (req, res) => {
       code: err.code,
       response: err.response,
       error: err.message,
-      hint: err.code === 'EAUTH'
-        ? 'Wrong App Password. Use a Gmail App Password (16 chars), not your real password.'
-        : err.message
+      hint:
+        err.code === 'EAUTH'
+          ? 'Wrong App Password. Use a Gmail App Password (16 chars), not your real password.'
+          : err.message,
     })
   }
 })
