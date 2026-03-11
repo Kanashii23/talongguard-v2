@@ -728,7 +728,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, [activeSessionBrgy, activeMapDate, selectedDate]) // eslint-disable-line
 
   useEffect(() => {
-    if (!sessionId || sessions.length === 0) return
+    if (!sessionId) {
+      setActiveMapDate(null)
+      return
+    }
+    if (sessions.length === 0) return
     const parsed = hashToSession(sessionId)
     if (!parsed) return
     const match = sessions.find(
