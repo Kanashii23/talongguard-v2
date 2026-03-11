@@ -4,6 +4,6 @@
     "jsx": "react-jsx",
     "checkJs": false
   },
-  "include": ["frontend/src/**/*"],
+  "include": ["frontend/src/**/*", "tailwind.config.js"],
   "exclude": ["node_modules"]
 }
