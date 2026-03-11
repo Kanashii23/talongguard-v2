@@ -778,7 +778,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, [filtered, activeSessionBrgy, activeMapDate])
 
   const filterScopeRecords = useMemo(() => {
-    if (!activeSessionBrgy || !activeMapDate) return records
+    if (!activeSessionBrgy || !activeMapDate) {
+      if (selectedDate)
+        return records.filter((r) => (r.date || r.scanned_at || '').startsWith(selectedDate))
+      return records
+    }
     return records.filter(
       (r) =>
         r.date.startsWith(activeSessionDate) &&
@@ -786,7 +790,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           ? !r.municipality || r.municipality === 'Unknown'
           : (r.municipality || '') === activeSessionBrgy)
     )
-  }, [records, activeSessionBrgy, activeMapDate])
+  }, [records, activeSessionBrgy, activeMapDate, selectedDate])
 
   const pieData = useMemo(
     () => ({
