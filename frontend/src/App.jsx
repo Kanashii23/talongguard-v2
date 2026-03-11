@@ -120,7 +120,6 @@ export default function App() {
 
       <div className="pt-16">
         <Routes>
-          <Route path="/" element={<Home records={records} />} />
           <Route
             path="/dashboard"
             element={
@@ -132,6 +131,18 @@ export default function App() {
               />
             }
           />
+          <Route
+            path="/dashboard/:sessionId"
+            element={
+              <Dashboard
+                records={records}
+                setRecords={setRecords}
+                isLoggedIn={isLoggedIn}
+                showToast={showToast}
+              />
+            }
+          />
+          <Route path="/diseases" element={<DiseaseGuide />} />
           <Route path="/diseases" element={<DiseaseGuide />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login onLogin={handleLogin} isLoggedIn={isLoggedIn} />} />
