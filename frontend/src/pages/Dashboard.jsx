@@ -280,7 +280,7 @@ function DiseaseMap({ records, tileType, activeFilters }) {
                 pathOptions={{
                   fillColor: cfg.color,
                   color: '#fff',
-                  weight: 2,
+                  weight: 1,
                   opacity: 1,
                   fillOpacity: 0.85,
                 }}
@@ -642,6 +642,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const [editingId, setEditingId] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [timelineFilter, setTimelineFilter] = useState('all')
+  const [selectedDateByMun, setSelectedDateByMun] = useState({})
   const { sessionId } = useParams()
   const navigate = useNavigate()
 
@@ -704,6 +705,17 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         return [key, recs, date, municipality, avgLat, avgLng]
       })
   }, [filtered])
+
+  const munSessions = useMemo(() => {
+    const byMun = {}
+    sessions.forEach((sess) => {
+      const mun = sess[3]
+      if (!byMun[mun]) byMun[mun] = []
+      byMun[mun].push(sess)
+    })
+    Object.values(byMun).forEach((arr) => arr.sort((a, b) => b[2].localeCompare(a[2])))
+    return Object.entries(byMun).sort((a, b) => b[1][0][2].localeCompare(a[1][0][2]))
+  }, [sessions])
 
   const mapRecords = useMemo(() => {
     if (!activeMapDate) return []
@@ -927,7 +939,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         console.error('Save to DB failed:', err)
         setModalData(null)
         setEditingId(null)
-        showToast('❌ Failed to save: ' + err.message, 'error')
+        if (err.message?.includes('401') || err.message?.toLowerCase().includes('token')) {
+          showToast('❌ Session expired. Please log in again.', 'error')
+          localStorage.removeItem('tg_token')
+          localStorage.removeItem('tg_user')
+          window.location.href = '/login'
+        } else {
+          showToast('❌ Failed to save: ' + err.message, 'error')
+        }
       }
     } else {
       setModalData(null)
@@ -1140,7 +1159,10 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     <p className="text-sm">No scan sessions for selected filters.</p>
                   </div>
                 ) : (
-                  sessions.map(([key, recs, date, municipality, sAvgLat, sAvgLng]) => {
+                  munSessions.map(([mun, munArr]) => {
+                    const selectedDate = selectedDateByMun[mun] || munArr[0][2]
+                    const sess = munArr.find(([, , d]) => d === selectedDate) || munArr[0]
+                    const [key, recs, date, municipality, sAvgLat, sAvgLng] = sess
                     const avgLat = (sAvgLat || 0).toFixed(4)
                     const avgLng = (sAvgLng || 0).toFixed(4)
                     const h = recs.reduce((a, r) => a + (parseInt(r.healthy) || 0), 0)
@@ -1161,7 +1183,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     if (recs.some((r) => parseInt(r.wilt) > 0)) diseaseTypes.push('wilt')
                     return (
                       <div
-                        key={key}
+                        key={mun}
                         className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
                       >
                         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-50 flex items-center justify-center text-base flex-shrink-0">
@@ -1177,7 +1199,27 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                             )}
                           </div>
                           <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-1.5 items-center">
-                            <span>{date}</span>
+                            {munArr.length > 1 ? (
+                              <select
+                                value={selectedDate}
+                                onChange={(e) =>
+                                  setSelectedDateByMun((prev) => ({
+                                    ...prev,
+                                    [mun]: e.target.value,
+                                  }))
+                                }
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-0.5 bg-white focus:outline-none focus:border-forest-400 font-medium text-gray-600"
+                              >
+                                {munArr.map(([, , d]) => (
+                                  <option key={d} value={d}>
+                                    {d}
+                                    {d === munArr[0][2] ? ' (latest)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span>{date}</span>
+                            )}
                             <span>·</span>
                             <span>{h + d} samples</span>
                             <span className="hidden sm:inline">·</span>
