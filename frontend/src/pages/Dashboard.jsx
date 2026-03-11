@@ -611,13 +611,16 @@ function RecordModal({ record, onSave, onClose }) {
 }
 
 function sessionToHash(date, municipality) {
-  return btoa(`${date}||${municipality}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  return btoa(encodeURIComponent(`${date}||${municipality}`))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
 }
 
 function hashToSession(hash) {
   try {
     const pad = hash.length % 4 ? hash + '='.repeat(4 - (hash.length % 4)) : hash
-    const decoded = atob(pad.replace(/-/g, '+').replace(/_/g, '/'))
+    const decoded = decodeURIComponent(atob(pad.replace(/-/g, '+').replace(/_/g, '/')))
     const idx = decoded.indexOf('||')
     if (idx === -1) return null
     return { date: decoded.slice(0, idx), municipality: decoded.slice(idx + 2) }
