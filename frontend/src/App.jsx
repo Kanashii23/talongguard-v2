@@ -15,16 +15,20 @@ import { api } from './api.js'
 
 // Load persisted user from localStorage
 function loadUser() {
-  try { return JSON.parse(localStorage.getItem('tg_user')) } catch { return null }
+  try {
+    return JSON.parse(localStorage.getItem('tg_user'))
+  } catch {
+    return null
+  }
 }
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(loadUser)
-  const [records, setRecords]         = useState([])
+  const [records, setRecords] = useState([])
 
   // Normalize date format to YYYY-MM-DD HH:MM:SS regardless of source format
   function normalizeDates(data) {
-    return (data || []).map(r => {
+    return (data || []).map((r) => {
       if (!r.date) return r
       // Handle DD/MM/YYYY HH:MM format from Google Sheets
       const m = r.date.match(/^(\d{2})\/(\d{2})\/(\d{4})(.*)$/)
@@ -33,36 +37,46 @@ export default function App() {
     })
   }
   const [scansLoaded, setScansLoaded] = useState(false)
-  const [toast, setToast]             = useState(null)
+  const [toast, setToast] = useState(null)
 
   const isLoggedIn = !!currentUser
-  const isAdmin    = currentUser?.role === 'admin'
+  const isAdmin = currentUser?.role === 'admin'
 
   // Fetch scan records on load — public, no login required
   useEffect(() => {
-    api.getScans()
-      .then(data => { if (data && data.length > 0) { setRecords(normalizeDates(data)); setScansLoaded(true) } })
+    api
+      .getScans()
+      .then((data) => {
+        if (data && data.length > 0) {
+          setRecords(normalizeDates(data))
+          setScansLoaded(true)
+        }
+      })
       .catch(() => {})
   }, []) // eslint-disable-line
 
   // Re-fetch when user logs in to get latest data
   useEffect(() => {
     if (!currentUser) return
-    api.getScans()
-      .then(data => { if (data && data.length > 0) setRecords(normalizeDates(data)) })
+    api
+      .getScans()
+      .then((data) => {
+        if (data && data.length > 0) setRecords(normalizeDates(data))
+      })
       .catch(() => {})
   }, [currentUser]) // eslint-disable-line
 
   // Poll every 15 seconds until all records have municipality resolved
   useEffect(() => {
-    const hasPending = () => records.some(r => !r.municipality || r.municipality === 'Unknown')
+    const hasPending = () => records.some((r) => !r.municipality || r.municipality === 'Unknown')
     if (!hasPending()) return
     const interval = setInterval(() => {
-      api.getScans()
-        .then(data => {
+      api
+        .getScans()
+        .then((data) => {
           if (data && data.length > 0) {
             setRecords(normalizeDates(data))
-            if (!data.some(r => !r.municipality || r.municipality === 'Unknown')) {
+            if (!data.some((r) => !r.municipality || r.municipality === 'Unknown')) {
               clearInterval(interval) // Stop polling once all resolved
             }
           }
@@ -106,31 +120,41 @@ export default function App() {
 
       <div className="pt-16">
         <Routes>
-          <Route path="/"               element={<Home records={records} />} />
-          <Route path="/dashboard"      element={
-            <Dashboard
-              records={records}
-              setRecords={setRecords}
-              isLoggedIn={isLoggedIn}
-              showToast={showToast}
-            />
-          } />
-          <Route path="/diseases"       element={<DiseaseGuide />} />
-          <Route path="/about"          element={<About />} />
-          <Route path="/login"          element={<Login onLogin={handleLogin} isLoggedIn={isLoggedIn} />} />
-          <Route path="/forgot-password"element={<ForgotPassword isLoggedIn={isLoggedIn} />} />
-          <Route path="/reset-password"  element={<ResetPassword isLoggedIn={isLoggedIn} />} />
-          <Route path="/change-password"element={
-            isLoggedIn
-              ? <ChangePassword currentUser={currentUser} onPasswordChanged={handlePasswordChanged} />
-              : <Navigate to="/login" />
-          } />
-          <Route path="/manage-users"   element={
-            isAdmin
-              ? <ManageUsers showToast={showToast} />
-              : <Navigate to="/dashboard" />
-          } />
-          <Route path="*"               element={<Navigate to="/" />} />
+          <Route path="/" element={<Home records={records} />} />
+          <Route
+            path="/dashboard/:sessionId"
+            element={
+              <Dashboard
+                records={records}
+                setRecords={setRecords}
+                isLoggedIn={isLoggedIn}
+                showToast={showToast}
+              />
+            }
+          />
+          <Route path="/diseases" element={<DiseaseGuide />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} isLoggedIn={isLoggedIn} />} />
+          <Route path="/forgot-password" element={<ForgotPassword isLoggedIn={isLoggedIn} />} />
+          <Route path="/reset-password" element={<ResetPassword isLoggedIn={isLoggedIn} />} />
+          <Route
+            path="/change-password"
+            element={
+              isLoggedIn ? (
+                <ChangePassword
+                  currentUser={currentUser}
+                  onPasswordChanged={handlePasswordChanged}
+                />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/manage-users"
+            element={isAdmin ? <ManageUsers showToast={showToast} /> : <Navigate to="/dashboard" />}
+          />
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
 

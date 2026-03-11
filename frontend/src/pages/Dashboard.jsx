@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
 import {
   Chart as ChartJS,
@@ -609,6 +610,22 @@ function RecordModal({ record, onSave, onClose }) {
   )
 }
 
+function sessionToHash(date, municipality) {
+  return btoa(`${date}||${municipality}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+function hashToSession(hash) {
+  try {
+    const pad = hash.length % 4 ? hash + '='.repeat(4 - (hash.length % 4)) : hash
+    const decoded = atob(pad.replace(/-/g, '+').replace(/_/g, '/'))
+    const idx = decoded.indexOf('||')
+    if (idx === -1) return null
+    return { date: decoded.slice(0, idx), municipality: decoded.slice(idx + 2) }
+  } catch {
+    return null
+  }
+}
+
 // ── Dashboard Page ────────────────────────────────────────────────────
 export default function Dashboard({ records, setRecords, isLoggedIn, showToast }) {
   const [activeFilters, setActiveFilters] = useState(new Set(Object.keys(DISEASE_CONFIG)))
@@ -622,6 +639,8 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const [editingId, setEditingId] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [timelineFilter, setTimelineFilter] = useState('all')
+  const { sessionId } = useParams()
+  const navigate = useNavigate()
 
   useEffect(() => {
     const missing = records.filter((r) => !r.municipality)
@@ -635,10 +654,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     }
   }, [sidebarOpen])
 
-  function openMap(date) {
-    setActiveMapDate(date)
+  function openMap(key) {
+    const [date, mun] = key.split('||')
+    setActiveMapDate(key)
     setSidebarOpen(false)
     window.scrollTo({ top: 0 })
+    navigate(`/dashboard/${sessionToHash(date, mun)}`)
   }
 
   function toggleFilter(key) {
@@ -702,6 +723,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   useEffect(() => {
     setCurrentPage(1)
   }, [activeSessionBrgy, activeMapDate, selectedDate]) // eslint-disable-line
+
+  useEffect(() => {
+    if (!sessionId || sessions.length === 0) return
+    const parsed = hashToSession(sessionId)
+    if (!parsed) return
+    const match = sessions.find(
+      ([, , date, mun]) => date === parsed.date && mun === parsed.municipality
+    )
+    if (match) setActiveMapDate(match[0])
+  }, [sessionId, sessions]) // eslint-disable-line
 
   const tableRecords = useMemo(() => {
     if (!activeSessionBrgy || !activeMapDate) return filtered
@@ -1058,7 +1089,10 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
             >
               <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
                 <button
-                  onClick={() => setActiveMapDate(null)}
+                  onClick={() => {
+                    setActiveMapDate(null)
+                    navigate('/dashboard')
+                  }}
                   className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-forest-700 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition"
                 >
                   ← Back
