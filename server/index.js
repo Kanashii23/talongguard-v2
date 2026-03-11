@@ -15,7 +15,11 @@ app.use(
       if (origin.match(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) {
         return callback(null, true)
       }
-      if (origin === 'https://talongguard-v2-oakf.vercel.app') {
+      if (
+        origin === 'https://talongguard-v2-oakf.vercel.app' ||
+        origin === 'https://talongguard.com' ||
+        origin === 'https://www.talongguard.com'
+      ) {
         return callback(null, true)
       }
       callback(new Error('Not allowed by CORS'))
