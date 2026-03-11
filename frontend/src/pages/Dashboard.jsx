@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -46,6 +47,7 @@ function MiniCalendar({ records, selectedDate, onSelectDate }) {
     setYear(y)
     setMonth(m - 1)
   }, [records])
+
   const MONTHS = [
     'Jan',
     'Feb',
@@ -86,7 +88,7 @@ function MiniCalendar({ records, selectedDate, onSelectDate }) {
     setYear(y)
   }
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
       <div className="flex items-center justify-between bg-forest-700 text-white px-4 py-3">
         <button
           onClick={() => nav(-1)}
@@ -125,7 +127,7 @@ function MiniCalendar({ records, selectedDate, onSelectDate }) {
                 key={dateStr}
                 onClick={() => onSelectDate(isSelected ? null : dateStr)}
                 className={`relative text-center text-xs py-1.5 rounded-lg transition-all duration-150 font-medium
-                  ${isSelected ? 'bg-forest-700 text-white' : isToday ? 'text-forest-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}
+                  ${isSelected ? 'bg-forest-700 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
               >
                 {d}
                 {hasData && (
@@ -153,7 +155,7 @@ function DiseaseFilter({ records, activeFilters, onToggle }) {
           <button
             key={key}
             onClick={() => onToggle(key)}
-            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full text-left ${active ? 'bg-gray-50' : 'opacity-50 hover:opacity-70'}`}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full text-left ${active ? 'bg-gray-50 dark:bg-gray-800' : 'opacity-50 hover:opacity-70'}`}
           >
             <div
               className="w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
@@ -161,10 +163,10 @@ function DiseaseFilter({ records, activeFilters, onToggle }) {
             >
               {active && <span className="text-white text-[9px] font-bold leading-none">✓</span>}
             </div>
-            <span className="flex-1 font-medium text-gray-700 text-left">
+            <span className="flex-1 font-medium text-gray-700 dark:text-gray-300 text-left">
               {cfg.emoji} {cfg.label}
             </span>
-            <span className="text-xs font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+            <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
               {count}
             </span>
           </button>
@@ -174,7 +176,7 @@ function DiseaseFilter({ records, activeFilters, onToggle }) {
   )
 }
 
-// ── Sidebar Content (shared between desktop + mobile drawer) ──────────
+// ── Sidebar Content ───────────────────────────────────────────────────
 function SidebarContent({
   records,
   filterScopeRecords,
@@ -189,7 +191,7 @@ function SidebarContent({
   return (
     <div className="flex flex-col gap-6 p-5">
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
           📅 Scan Date
         </p>
         <MiniCalendar
@@ -199,7 +201,7 @@ function SidebarContent({
         />
       </div>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
           🔎 Filter Diseases
         </p>
         {activeSessionBrgy ? (
@@ -214,7 +216,7 @@ function SidebarContent({
         />
       </div>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
           🗺 Map Style
         </p>
         <div className="flex flex-col gap-2">
@@ -224,7 +226,7 @@ function SidebarContent({
           ].map(({ val, lbl }) => (
             <label
               key={val}
-              className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-600 hover:text-forest-700 transition"
+              className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-600 dark:text-gray-300 hover:text-forest-700 transition"
             >
               <input
                 type="radio"
@@ -254,6 +256,14 @@ function FitBounds({ records }) {
   return null
 }
 
+const GRADIENTS = {
+  healthy: ['#86efac', '#16a34a'],
+  insect: ['#fca5a5', '#dc2626'],
+  leafspot: ['#fb923c', '#c2410c'],
+  mosaic: ['#fef08a', '#eab308'],
+  wilt: ['#c084fc', '#7e22ce'],
+}
+
 // ── Disease Map ───────────────────────────────────────────────────────
 function DiseaseMap({ records, tileType, activeFilters }) {
   const center =
@@ -280,23 +290,28 @@ function DiseaseMap({ records, tileType, activeFilters }) {
           { key: 'mosaic', val: parseInt(r.mosaic) || 0 },
           { key: 'wilt', val: parseInt(r.wilt) || 0 },
         ].filter((d) => d.val > 0 && activeFilters.has(d.key))
-
         return diseases
           .map(({ key, val }) => {
             const cfg = DISEASE_CONFIG[key]
             if (!cfg) return null
             return (
-              <CircleMarker
+              <Marker
                 key={`${r.id}-${key}`}
-                center={[parseFloat(r.lat), parseFloat(r.lng)]}
-                radius={4}
-                pathOptions={{
-                  fillColor: cfg.color,
-                  color: '#fff',
-                  weight: 1,
-                  opacity: 1,
-                  fillOpacity: 0.85,
-                }}
+                position={[parseFloat(r.lat), parseFloat(r.lng)]}
+                icon={L.divIcon({
+                  className: '',
+                  html: `<div style="
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle at 35% 35%, ${GRADIENTS[key][0]}, ${GRADIENTS[key][1]});
+                    border: 1.5px solid rgba(255,255,255,0.7);
+                    box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+                  "></div>`,
+                  iconSize: [16, 16],
+                  iconAnchor: [8, 8],
+                  popupAnchor: [0, -8],
+                })}
               >
                 <Popup>
                   <div className="text-sm p-1 min-w-[160px]">
@@ -310,7 +325,7 @@ function DiseaseMap({ records, tileType, activeFilters }) {
                     </div>
                   </div>
                 </Popup>
-              </CircleMarker>
+              </Marker>
             )
           })
           .filter(Boolean)
@@ -319,7 +334,7 @@ function DiseaseMap({ records, tileType, activeFilters }) {
   )
 }
 
-// ── Municipality resolver via OpenCage ──────────────────────────────
+// ── Municipality resolver ─────────────────────────────────────────────
 const _geoCache = new Map()
 const OPENCAGE_API_KEY = '1f23d0ee06aa411dbe030f586218d272'
 
@@ -355,7 +370,6 @@ async function resolveAllMunicipalities(records, setRecords) {
     const key = `${parseFloat(r.lat).toFixed(2)},${parseFloat(r.lng).toFixed(2)}`
     if (!unique.has(key)) unique.set(key, { lat: r.lat, lng: r.lng })
   })
-
   const delay = (ms) => new Promise((res) => setTimeout(res, ms))
   const entries = [...unique.entries()]
   for (let i = 0; i < entries.length; i++) {
@@ -363,7 +377,6 @@ async function resolveAllMunicipalities(records, setRecords) {
     await fetchMunicipality(lat, lng)
     if (i < entries.length - 1) await delay(300)
   }
-
   setRecords((prev) =>
     prev.map((r) => {
       if (r.municipality) return r
@@ -382,6 +395,7 @@ function RecordModal({ record, onSave, onClose }) {
       document.body.style.overflow = ''
     }
   }, [])
+
   const [form, setForm] = useState(() => {
     const raw = record?.date || ''
     const formatted = raw
@@ -476,26 +490,28 @@ function RecordModal({ record, onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
       <div
-        className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-fade-up overflow-y-auto"
+        className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-fade-up overflow-y-auto"
         style={{ maxHeight: '90vh' }}
       >
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
-        <h3 className="font-display text-xl font-bold text-gray-900 mb-6">Edit Record</h3>
+        <h3 className="font-display text-xl font-bold text-gray-900 dark:text-white mb-6">
+          Edit Record
+        </h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
               Date & Time
             </label>
             <input
               type="datetime-local"
               value={form.date}
               onChange={(e) => set('date', e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 transition"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 dark:bg-gray-800 dark:text-white transition"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                 Latitude
               </label>
               <input
@@ -503,11 +519,11 @@ function RecordModal({ record, onSave, onClose }) {
                 placeholder="e.g. 15.4866"
                 value={form.lat}
                 onChange={(e) => set('lat', e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 font-mono transition"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 dark:bg-gray-800 dark:text-white font-mono transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                 Longitude
               </label>
               <input
@@ -515,12 +531,12 @@ function RecordModal({ record, onSave, onClose }) {
                 placeholder="e.g. 120.964"
                 value={form.lng}
                 onChange={(e) => set('lng', e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 font-mono transition"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-forest-500 bg-gray-50 dark:bg-gray-800 dark:text-white font-mono transition"
               />
             </div>
           </div>
           <div
-            className={`rounded-xl px-4 py-3 border text-sm ${munLoading ? 'bg-blue-50 border-blue-100' : municipality ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}
+            className={`rounded-xl px-4 py-3 border text-sm ${munLoading ? 'bg-blue-50 dark:bg-gray-800 border-blue-100 dark:border-gray-700' : municipality ? 'bg-green-50 dark:bg-gray-800 border-green-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}
           >
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
               📍 Location
@@ -532,7 +548,7 @@ function RecordModal({ record, onSave, onClose }) {
               </div>
             ) : municipality ? (
               <div>
-                <p className="font-semibold text-gray-800 text-sm">
+                <p className="font-semibold text-gray-800 dark:text-white text-sm">
                   {municipality.includes(',') ? municipality.split(',')[0].trim() : municipality}
                 </p>
                 {municipality.includes(',') && (
@@ -546,21 +562,21 @@ function RecordModal({ record, onSave, onClose }) {
             )}
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               Detection Counts
             </label>
             <div className="space-y-2">
               {DISEASE_FIELDS.map(({ key, label, emoji, color, border, bg }) => (
                 <div
                   key={key}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${border} ${bg}`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${border} dark:border-gray-700 ${bg} dark:bg-gray-800`}
                 >
                   <span className="text-base">{emoji}</span>
                   <span className={`flex-1 text-sm font-medium ${color}`}>{label}</span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setInt(key, form[key] - 1)}
-                      className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition flex items-center justify-center"
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition flex items-center justify-center"
                     >
                       −
                     </button>
@@ -569,11 +585,11 @@ function RecordModal({ record, onSave, onClose }) {
                       min="0"
                       value={form[key]}
                       onChange={(e) => setInt(key, e.target.value)}
-                      className={`w-14 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold ${color} bg-white focus:outline-none focus:border-forest-400`}
+                      className={`w-14 text-center border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 text-sm font-bold ${color} bg-white dark:bg-gray-800 focus:outline-none focus:border-forest-400`}
                     />
                     <button
                       onClick={() => setInt(key, form[key] + 1)}
-                      className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition flex items-center justify-center"
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition flex items-center justify-center"
                     >
                       +
                     </button>
@@ -583,7 +599,7 @@ function RecordModal({ record, onSave, onClose }) {
             </div>
             <p className="text-xs text-gray-400 mt-2 text-right">
               Total:{' '}
-              <span className="font-bold text-gray-600">
+              <span className="font-bold text-gray-600 dark:text-gray-300">
                 {Object.values({
                   healthy: form.healthy,
                   insect: form.insect,
@@ -599,7 +615,7 @@ function RecordModal({ record, onSave, onClose }) {
         <div className="flex gap-3 mt-7">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+            className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
           >
             Cancel
           </button>
@@ -699,7 +715,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       if (!m || m === 'Unknown' || m === '') return '⏳ Pending'
       return m.replace(/^(City of |Municipality of )/i, '').trim()
     }
-
     const byKey = {}
     filtered.forEach((r) => {
       const date = (r.date || r.scanned_at || '').split(' ')[0]
@@ -708,7 +723,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       if (!byKey[key]) byKey[key] = []
       byKey[key].push(r)
     })
-
     return Object.entries(byKey)
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, recs]) => {
@@ -816,7 +830,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   const { lineData, trendInfo } = useMemo(() => {
     const dates = [...new Set(filtered.map((r) => r.date.split(' ')[0]))].sort()
-
     const COLORS = {
       all: { border: '#15803d', bg: 'rgba(21,128,61,0.08)' },
       healthy: { border: '#22c55e', bg: 'rgba(34,197,94,0.08)' },
@@ -826,7 +839,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       mold: { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
       wilt: { border: '#a855f7', bg: 'rgba(168,85,247,0.08)' },
     }
-
     let datasets = []
     if (timelineFilter === 'all') {
       datasets = Object.entries(DISEASE_CONFIG).map(([key, cfg]) => {
@@ -868,7 +880,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         },
       ]
     }
-
     const totalByDate = dates.map((d) => {
       if (timelineFilter === 'all')
         return filtered
@@ -891,9 +902,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     if (totalByDate.length >= 2) {
       const recent = totalByDate.slice(-3).reduce((a, b) => a + b, 0)
       const prev = totalByDate.slice(-6, -3).reduce((a, b) => a + b, 0)
-      if (prev === 0 && recent > 0) {
+      if (prev === 0 && recent > 0)
         trendInfo = { arrow: '↑', label: 'Increasing', color: 'text-red-500' }
-      } else if (prev > 0) {
+      else if (prev > 0) {
         const pct = ((recent - prev) / prev) * 100
         if (pct > 10)
           trendInfo = { arrow: '↑', label: `+${Math.round(pct)}%`, color: 'text-red-500' }
@@ -902,26 +913,18 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         else trendInfo = { arrow: '→', label: 'Stable', color: 'text-gray-400' }
       }
     }
-
-    return {
-      lineData: { labels: dates.map((d) => d.slice(5)), datasets },
-      trendInfo,
-    }
+    return { lineData: { labels: dates.map((d) => d.slice(5)), datasets }, trendInfo }
   }, [filtered, timelineFilter])
 
   async function handleSaveRecord(form) {
     if (editingId) {
-      // Find the original record to preserve municipality if coords didn't change
       const originalRecord = records.find((r) => r.id === editingId)
       const latChanged = parseFloat(form.lat) !== parseFloat(originalRecord?.lat)
       const lngChanged = parseFloat(form.lng) !== parseFloat(originalRecord?.lng)
-
-      // Only use the newly resolved municipality if coordinates actually changed
       const resolvedMunicipality =
         !latChanged && !lngChanged && originalRecord?.municipality
           ? originalRecord.municipality
           : form.municipality
-
       const updated = {
         date: form.date,
         lat: parseFloat(form.lat),
@@ -934,7 +937,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         wilt: parseInt(form.wilt) || 0,
         is_edited: 1,
       }
-
       try {
         await api.updateScan(editingId, {
           scanned_at: updated.date,
@@ -947,7 +949,6 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           mosaic: updated.mosaic,
           wilt: updated.wilt,
         })
-
         setRecords((prev) => prev.map((r) => (r.id === editingId ? { ...r, ...updated } : r)))
         setModalData(null)
         setEditingId(null)
@@ -1014,14 +1015,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }
 
   return (
-    <div className="page-enter min-h-screen bg-gray-50">
-      {/* Mobile top bar with filter button */}
-      <div className="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3 fixed top-16 left-0 right-0 z-20 shadow-sm">
+    <div className="page-enter min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Mobile top bar */}
+      <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center justify-between gap-3 fixed top-16 left-0 right-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-base">📊</span>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-800 leading-tight">Dashboard</p>
-            <p className="text-xs text-gray-400 truncate">
+            <p className="text-xs font-bold text-gray-800 dark:text-white leading-tight">
+              Dashboard
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {activeSessionBrgy
                 ? `${activeSessionBrgy} · ${activeSessionDate}`
                 : selectedDate
@@ -1052,25 +1055,27 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
       </div>
 
       <div className="flex">
-        {/* ── Desktop sidebar ── */}
-        <aside className="hidden lg:flex w-72 bg-white border-r border-gray-100 flex-col sticky top-16 h-[calc(100vh-64px)] overflow-y-auto flex-shrink-0">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex-col sticky top-16 h-[calc(100vh-64px)] overflow-y-auto flex-shrink-0">
           <SidebarContent {...sidebarProps} />
         </aside>
 
-        {/* ── Mobile sidebar drawer ── */}
+        {/* Mobile sidebar drawer */}
         {sidebarOpen && (
           <div className="lg:hidden fixed inset-0 z-40 flex" onClick={() => setSidebarOpen(false)}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
             <div
-              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl overflow-y-auto"
+              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl overflow-y-auto"
               style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-                <span className="font-display font-bold text-gray-900">Filters & Settings</span>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
+                <span className="font-display font-bold text-gray-900 dark:text-white">
+                  Filters & Settings
+                </span>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
+                  className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                 >
                   ✕
                 </button>
@@ -1080,7 +1085,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           </div>
         )}
 
-        {/* ── Main content ── */}
+        {/* Main content */}
         <main className="flex-1 pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
           {/* Stats cards */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
@@ -1103,16 +1108,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
             ].map(({ icon, val, lbl, iconBg, color }) => (
               <div
                 key={lbl}
-                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4"
+                className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4"
               >
                 <div
-                  className={`w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${iconBg} flex items-center justify-center text-base sm:text-xl flex-shrink-0`}
+                  className={`w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${iconBg} dark:bg-gray-700 flex items-center justify-center text-base sm:text-xl flex-shrink-0`}
                 >
                   {icon}
                 </div>
                 <div className="text-center sm:text-left">
                   <div
-                    className={`font-display text-2xl sm:text-3xl font-bold ${color || 'text-gray-900'}`}
+                    className={`font-display text-2xl sm:text-3xl font-bold ${color || 'text-gray-900 dark:text-white'}`}
                   >
                     {val}
                   </div>
@@ -1128,19 +1133,19 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           {activeMapDate && (
             <div
               ref={mapRef}
-              className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm mb-4 sm:mb-6 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm mb-4 sm:mb-6 overflow-hidden"
             >
-              <div className="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
+              <div className="px-4 sm:px-5 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setActiveMapDate(null)
                     navigate('/dashboard')
                   }}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-forest-700 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-forest-700 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg transition"
                 >
                   ← Back
                 </button>
-                <span className="font-semibold text-xs sm:text-sm text-gray-800 truncate">
+                <span className="font-semibold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">
                   🗺️ {activeSessionBrgy} · {activeSessionDate}
                 </span>
                 <span className="ml-auto text-xs text-gray-400 flex-shrink-0">
@@ -1158,27 +1163,28 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           )}
 
           {/* Scan Sessions */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm mb-4 sm:mb-6 overflow-hidden">
-            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
-              <span className="font-semibold text-gray-800 text-sm sm:text-base">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm mb-4 sm:mb-6 overflow-hidden">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <span className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
                 📍 Scan Sessions
               </span>
-              <span className="text-xs bg-gray-100 text-gray-500 px-2.5 sm:px-3 py-1 rounded-full font-medium">
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 sm:px-3 py-1 rounded-full font-medium">
                 {selectedDate || 'All Dates'}
               </span>
             </div>
-
             {!activeMapDate && (
               <div>
                 {sessions.length === 0 ? (
                   <div className="text-center py-14 text-gray-400">
                     <div className="text-4xl mb-3">📭</div>
-                    <p className="text-sm">No scan sessions for selected filters.</p>
+                    <p className="text-sm dark:text-gray-500">
+                      No scan sessions for selected filters.
+                    </p>
                   </div>
                 ) : (
                   munSessions.map(([mun, munArr]) => {
-                    const selectedDate = selectedDateByMun[mun] || munArr[0][2]
-                    const sess = munArr.find(([, , d]) => d === selectedDate) || munArr[0]
+                    const selDate = selectedDateByMun[mun] || munArr[0][2]
+                    const sess = munArr.find(([, , d]) => d === selDate) || munArr[0]
                     const [key, recs, date, municipality, sAvgLat, sAvgLng] = sess
                     const avgLat = (sAvgLat || 0).toFixed(4)
                     const avgLng = (sAvgLng || 0).toFixed(4)
@@ -1201,13 +1207,13 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     return (
                       <div
                         key={mun}
-                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                       >
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-50 flex items-center justify-center text-base flex-shrink-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-50 dark:bg-forest-900/20 flex items-center justify-center text-base flex-shrink-0">
                           📍
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-800 text-xs sm:text-sm truncate">
+                          <div className="font-semibold text-gray-800 dark:text-white text-xs sm:text-sm truncate">
                             {municipality.includes(',') ? municipality.split(',')[0] : municipality}
                             {municipality.includes(',') && (
                               <span className="text-gray-400 font-normal text-xs ml-1">
@@ -1218,14 +1224,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                           <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-1.5 items-center">
                             {munArr.length > 1 ? (
                               <select
-                                value={selectedDate}
+                                value={selDate}
                                 onChange={(e) =>
                                   setSelectedDateByMun((prev) => ({
                                     ...prev,
                                     [mun]: e.target.value,
                                   }))
                                 }
-                                className="text-xs border border-gray-200 rounded-lg px-2 py-0.5 bg-white focus:outline-none focus:border-forest-400 font-medium text-gray-600"
+                                className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-0.5 bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:border-forest-400 font-medium text-gray-600"
                               >
                                 {munArr.map(([, , d]) => (
                                   <option key={d} value={d}>
@@ -1245,12 +1251,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                             <span className="hidden sm:inline text-red-500">{d} diseased</span>
                           </div>
                           <div className="hidden sm:flex gap-1 items-center mt-1">
-                            {diseaseTypes.map((d) => (
+                            {diseaseTypes.map((dt) => (
                               <div
-                                key={d}
+                                key={dt}
                                 className="w-2.5 h-2.5 rounded-full border border-white shadow-sm"
-                                style={{ background: DISEASE_CONFIG[d]?.color }}
-                                title={DISEASE_CONFIG[d]?.label}
+                                style={{ background: DISEASE_CONFIG[dt]?.color }}
+                                title={DISEASE_CONFIG[dt]?.label}
                               />
                             ))}
                             <span className="text-gray-400 text-xs ml-1 font-mono">
@@ -1274,8 +1280,10 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
           {/* Charts */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-            <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-4 text-sm">Disease Distribution</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <h3 className="font-semibold text-gray-800 dark:text-white mb-4 text-sm">
+                Disease Distribution
+              </h3>
               <Doughnut
                 data={pieData}
                 options={{
@@ -1289,10 +1297,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 }}
               />
             </div>
-            <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-gray-800 text-sm">Scan Timeline</h3>
+                  <h3 className="font-semibold text-gray-800 dark:text-white text-sm">
+                    Scan Timeline
+                  </h3>
                   <div
                     className={`flex items-center gap-1 mt-0.5 text-xs font-semibold ${trendInfo.color}`}
                   >
@@ -1307,7 +1317,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   className={`text-xs px-2.5 py-1 rounded-full font-semibold border transition-all ${
                     timelineFilter === 'all'
                       ? 'bg-forest-700 text-white border-forest-700'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-forest-400'
+                      : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-forest-400'
                   }`}
                 >
                   All
@@ -1319,7 +1329,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     className={`text-xs px-2.5 py-1 rounded-full font-semibold border transition-all ${
                       timelineFilter === key
                         ? 'text-white border-transparent'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                     }`}
                     style={
                       timelineFilter === key
@@ -1356,10 +1366,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           </div>
 
           {/* Detection Records Table */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-20 lg:mb-0">
-            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden mb-20 lg:mb-0">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-semibold text-gray-800 text-sm">Detection Records</h3>
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">
+                  Detection Records
+                </h3>
                 {activeSessionBrgy && (
                   <p className="text-xs text-forest-600 mt-0.5">
                     Filtered: {activeSessionBrgy} · {activeSessionDate}
@@ -1376,7 +1388,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     setPageSize(Number(e.target.value))
                     setCurrentPage(1)
                   }}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-gray-50 focus:outline-none focus:border-forest-400"
+                  className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:border-forest-400"
                 >
                   <option value={20}>20 / page</option>
                   <option value={30}>30 / page</option>
@@ -1389,7 +1401,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wide">
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
                     <th className="text-left px-4 sm:px-5 py-3">Date & Time</th>
                     <th className="text-left px-4 sm:px-5 py-3 hidden sm:table-cell">Location</th>
                     <th className="text-left px-4 sm:px-5 py-3 hidden sm:table-cell">Latitude</th>
@@ -1417,9 +1429,9 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                       return (
                         <tr
                           key={r.id}
-                          className="border-t border-gray-50 hover:bg-gray-50/70 transition-colors"
+                          className="border-t border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/70 dark:hover:bg-gray-700/30 transition-colors"
                         >
-                          <td className="px-4 sm:px-5 py-3 text-gray-600 text-xs sm:text-sm">
+                          <td className="px-4 sm:px-5 py-3 text-gray-600 dark:text-gray-300 text-xs sm:text-sm">
                             <div className="flex flex-col gap-1">
                               <span className="hidden sm:inline whitespace-nowrap">{r.date}</span>
                               <span className="sm:hidden">
@@ -1438,7 +1450,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                           <td className="px-4 sm:px-5 py-3 hidden sm:table-cell">
                             {r.municipality ? (
                               <div>
-                                <div className="font-medium text-gray-800 text-xs sm:text-sm">
+                                <div className="font-medium text-gray-800 dark:text-gray-100 text-xs sm:text-sm">
                                   {r.municipality.includes(',')
                                     ? r.municipality.split(',')[0]
                                     : r.municipality}
@@ -1453,10 +1465,10 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                               <span className="text-orange-400 text-xs">⏳ Geocoding...</span>
                             )}
                           </td>
-                          <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">
+                          <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs hidden sm:table-cell">
                             {r.lat}
                           </td>
-                          <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 text-xs hidden sm:table-cell">
+                          <td className="px-4 sm:px-5 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs hidden sm:table-cell">
                             {r.lng}
                           </td>
                           <td className="px-4 sm:px-5 py-3">
@@ -1482,7 +1494,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                                     setEditingId(r.id)
                                     setModalData(r)
                                   }}
-                                  className="text-xs px-2 sm:px-3 py-1.5 rounded-lg border border-gray-200 hover:border-forest-400 hover:text-forest-700 transition"
+                                  className="text-xs px-2 sm:px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 dark:text-gray-300 hover:border-forest-400 hover:text-forest-700 transition"
                                 >
                                   Edit
                                 </button>
@@ -1501,13 +1513,12 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 </tbody>
               </table>
             </div>
-
             {tableRecords.length > pageSize && (
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-gray-100">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-700">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   ← Prev
                 </button>
@@ -1521,7 +1532,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                     )
                   }
                   disabled={currentPage >= Math.ceil(tableRecords.length / pageSize)}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   Next →
                 </button>

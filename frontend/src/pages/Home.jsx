@@ -49,7 +49,7 @@ export default function Home({ records }) {
 
   return (
     <div className="page-enter">
-      {/* HERO */}
+      {/* HERO — already dark, no changes needed */}
       <section className="relative min-h-[calc(100vh-64px)] flex items-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-forest-950 via-forest-900 to-eggplant-950" />
         <div
@@ -157,20 +157,28 @@ export default function Home({ records }) {
       </section>
 
       {/* STATS */}
-      <section className="bg-white border-b border-gray-100">
+      <section className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { val: totalSamples, lbl: 'Total Number of Samples', color: 'text-forest-700' },
+            {
+              val: totalSamples,
+              lbl: 'Total Number of Samples',
+              color: 'text-forest-700 dark:text-forest-400',
+            },
             { val: healthy, lbl: 'Healthy Plants', color: 'text-green-600' },
             { val: diseased, lbl: 'Diseased Plants', color: 'text-red-500' },
-            { val: 5, lbl: 'Disease Types Detected', color: 'text-eggplant-700' },
+            {
+              val: 5,
+              lbl: 'Disease Types Detected',
+              color: 'text-eggplant-700 dark:text-eggplant-400',
+            },
           ].map(({ val, lbl, color }) => (
             <div
               key={lbl}
-              className="text-center p-6 rounded-2xl bg-gray-50 hover:-translate-y-1 transition-transform duration-200"
+              className="text-center p-6 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:-translate-y-1 transition-transform duration-200"
             >
               <div className={`font-display text-4xl font-bold ${color} mb-1`}>{val}</div>
-              <div className="text-gray-500 text-sm">{lbl}</div>
+              <div className="text-gray-500 dark:text-gray-400 text-sm">{lbl}</div>
             </div>
           ))}
         </div>
@@ -179,22 +187,26 @@ export default function Home({ records }) {
       {/* FEATURES */}
       <section className="max-w-7xl mx-auto px-6 py-20">
         <div className="text-center mb-14">
-          <p className="text-forest-600 text-sm font-semibold uppercase tracking-widest mb-3">
+          <p className="text-forest-600 dark:text-forest-400 text-sm font-semibold uppercase tracking-widest mb-3">
             What TalongGuard Does
           </p>
-          <h2 className="font-display text-4xl font-bold text-forest-950">Built for the Field</h2>
+          <h2 className="font-display text-4xl font-bold text-forest-950 dark:text-white">
+            Built for the Field
+          </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map(({ icon, title, desc }) => (
             <div
               key={title}
-              className="bg-white rounded-2xl p-7 border border-gray-100 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 group"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-7 border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 group"
             >
-              <div className="w-12 h-12 rounded-xl bg-forest-50 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform duration-200">
+              <div className="w-12 h-12 rounded-xl bg-forest-50 dark:bg-forest-900/30 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform duration-200">
                 {icon}
               </div>
-              <h3 className="font-display text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-              <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+              <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                {title}
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>

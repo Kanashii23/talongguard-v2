@@ -25,6 +25,17 @@ function loadUser() {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(loadUser)
   const [records, setRecords] = useState([])
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('tg_dark') === 'true')
+
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add('dark')
+    else document.documentElement.classList.remove('dark')
+    localStorage.setItem('tg_dark', darkMode)
+  }, [darkMode])
+
+  function toggleDarkMode() {
+    setDarkMode((prev) => !prev)
+  }
 
   // Normalize date format to YYYY-MM-DD HH:MM:SS regardless of source format
   function normalizeDates(data) {
@@ -110,12 +121,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-cream font-body">
+    <div className="min-h-screen bg-cream dark:bg-gray-950 font-body">
       <Navbar
         isLoggedIn={isLoggedIn}
         isAdmin={isAdmin}
         currentUser={currentUser}
         onLogout={handleLogout}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
       />
 
       <div className="pt-16">
@@ -165,7 +178,13 @@ export default function App() {
           />
           <Route
             path="/manage-users"
-            element={isAdmin ? <ManageUsers showToast={showToast} /> : <Navigate to="/dashboard" />}
+            element={
+              isAdmin ? (
+                <ManageUsers currentUser={currentUser} showToast={showToast} />
+              ) : (
+                <Navigate to="/dashboard" />
+              )
+            }
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
