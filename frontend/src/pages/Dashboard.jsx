@@ -31,8 +31,21 @@ ChartJS.register(
 // ── Mini Calendar ─────────────────────────────────────────────────────
 function MiniCalendar({ records, selectedDate, onSelectDate }) {
   const today = new Date()
-  const [year, setYear] = useState(2026)
-  const [month, setMonth] = useState(1)
+  const [year, setYear] = useState(() => new Date().getFullYear())
+  const [month, setMonth] = useState(() => new Date().getMonth())
+
+  useEffect(() => {
+    if (records.length === 0) return
+    const dates = records
+      .map((r) => (r.date || r.scanned_at || '').split(' ')[0])
+      .filter(Boolean)
+      .sort()
+    const latest = dates[dates.length - 1]
+    if (!latest) return
+    const [y, m] = latest.split('-').map(Number)
+    setYear(y)
+    setMonth(m - 1)
+  }, [records])
   const MONTHS = [
     'Jan',
     'Feb',
