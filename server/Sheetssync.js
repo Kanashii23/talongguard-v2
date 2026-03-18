@@ -1744,11 +1744,11 @@ function parseRows(rows) {
 
     // Convert DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM
     let scannedAt = rawDt
-    const ddmmMatch = rawDt.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}:\d{2})/)
-    if (ddmmMatch) {
-      const [, dd, mm, yyyy, time] = ddmmMatch
-      const paddedTime = time.includes(':') && time.split(':')[0].length === 1 ? '0' + time : time
-      scannedAt = `${yyyy}-${mm}-${dd} ${paddedTime}`
+    const mmddMatch = rawDt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}:\d{2})/)
+    if (mmddMatch) {
+      const [, mm, dd, yyyy, time] = mmddMatch
+      const paddedTime = time.split(':')[0].length === 1 ? '0' + time : time
+      scannedAt = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')} ${paddedTime}`
     }
     const lat = parseFloat(row[COL_LATITUDE])
     const lng = parseFloat(row[COL_LONGITUDE])
