@@ -42,8 +42,10 @@ export default function App() {
     return (data || []).map((r) => {
       if (!r.date) return r
       // Handle DD/MM/YYYY HH:MM format from Google Sheets
-      const m = r.date.match(/^(\d{2})\/(\d{2})\/(\d{4})(.*)$/)
-      if (m) return { ...r, date: `${m[3]}-${m[2]}-${m[1]}${m[4]}` }
+      const m = r.date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)$/)
+      //if (m) return { ...r, date: `${m[3]}-${m[2]}-${m[1]}${m[4]}` }
+      if (m)
+        return { ...r, date: `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}${m[4]}` }
       return r
     })
   }
