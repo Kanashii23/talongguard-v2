@@ -747,12 +747,13 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   const mapRecords = useMemo(() => {
     if (!activeMapDate) return []
     const [date, mun] = activeMapDate.split('||')
+    const normMun = (m) => (m || '').replace(/^(City of |Municipality of )/i, '').trim()
     return records.filter(
       (r) =>
         r.date.startsWith(date) &&
         (mun === '⏳ Pending'
           ? !r.municipality || r.municipality === 'Unknown'
-          : (r.municipality || '') === mun) &&
+          : normMun(r.municipality) === mun) &&
         [...activeFilters].some((k) => (parseInt(r[k]) || 0) > 0)
     )
   }, [activeMapDate, records, activeFilters])
@@ -782,12 +783,13 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
   const tableRecords = useMemo(() => {
     if (!activeSessionBrgy || !activeMapDate) return filtered
+    const normMun = (m) => (m || '').replace(/^(City of |Municipality of )/i, '').trim()
     return filtered.filter(
       (r) =>
         r.date.startsWith(activeSessionDate) &&
         (activeSessionBrgy === '⏳ Pending'
           ? !r.municipality || r.municipality === 'Unknown'
-          : (r.municipality || '') === activeSessionBrgy)
+          : normMun(r.municipality) === activeSessionBrgy)
     )
   }, [filtered, activeSessionBrgy, activeMapDate])
 
