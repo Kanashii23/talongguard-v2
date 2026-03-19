@@ -681,9 +681,19 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   }, []) // eslint-disable-line
 
   useEffect(() => {
-    document.body.style.overflow = sidebarOpen ? 'hidden' : ''
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
+    } else {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
     return () => {
       document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
     }
   }, [sidebarOpen])
 
@@ -1071,8 +1081,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b ... flex-shrink-0 ...">
-                ...header...
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
+                <span className="font-display font-bold text-gray-900 dark:text-white">
+                  Filters & Settings
+                </span>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                >
+                  ✕
+                </button>
               </div>
               <div
                 className="overflow-y-auto flex-1 overscroll-contain"
