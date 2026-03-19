@@ -1074,14 +1074,24 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
 
         {/* Mobile sidebar drawer */}
         {sidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 flex" onClick={() => setSidebarOpen(false)}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
+          <>
             <div
-              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden"
-              style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
-              onClick={(e) => e.stopPropagation()}
+              className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <div
+              className="lg:hidden fixed left-0 top-0 bottom-0 z-50 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl"
+              style={{
+                animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards',
+                position: 'fixed',
+              }}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
+              {/* Header - fixed at top */}
+              <div
+                id="sidebar-header"
+                className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }}
+              >
                 <span className="font-display font-bold text-gray-900 dark:text-white">
                   Filters & Settings
                 </span>
@@ -1092,14 +1102,23 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   ✕
                 </button>
               </div>
+
+              {/* Scroll area - absolutely positioned below header */}
               <div
-                className="overflow-y-auto flex-1 overscroll-contain"
-                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+                style={{
+                  position: 'absolute',
+                  top: '65px',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                }}
               >
                 <SidebarContent {...sidebarProps} />
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Main content */}
