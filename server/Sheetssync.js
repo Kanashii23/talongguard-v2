@@ -1889,13 +1889,11 @@ async function syncFromSheet() {
     console.log(`[Sheets Sync] Sheet has ${validRows.length} valid rows`)
     const records = parseRows(validRows)
     console.log(`[Sheets Sync] Parsed ${records.length} records from ${validRows.length} rows`)
-    if (records.length === 0) {
-      console.log('[Sheets Sync] No records parsed — skipping')
-      return
-    }
-    await db.run('DELETE FROM scan_records WHERE is_edited = 0')
+    if (records.length === 0) return
+
+    // ✅ No more DELETE — just insert new records only
     const inserted = await saveRecords(records)
-    console.log(`[Sheets Sync] Synced ${inserted} rows`)
+    if (inserted > 0) console.log(`[Sheets Sync] Inserted ${inserted} new rows`)
     geocodePendingRecords()
   } catch (err) {
     console.error('[Sheets Sync] Error:', err.message)
@@ -1905,7 +1903,7 @@ async function syncFromSheet() {
 function startSync() {
   console.log(`[Sheets Sync] Starting... (${USE_TEST_MODE ? 'TEST MODE' : 'NOMINATIM MODE'})`)
   syncFromSheet()
-  setInterval(syncFromSheet, 2 * 60 * 1000)
+  setInterval(syncFromSheet, 15 * 1000)
 }
 
 module.exports = { startSync }
