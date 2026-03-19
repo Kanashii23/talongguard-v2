@@ -1019,7 +1019,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   return (
     <div className="page-enter min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Mobile top bar */}
-      <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center justify-between gap-3 fixed top-16 left-0 right-0 z-20 shadow-sm">
+      <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center justify-between gap-3 sticky top-16 z-20 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-base">📊</span>
           <div className="min-w-0">
@@ -1067,22 +1067,17 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           <div className="lg:hidden fixed inset-0 z-40 flex" onClick={() => setSidebarOpen(false)}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
             <div
-              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl flex flex-col"
+              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden"
               style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
-                <span className="font-display font-bold text-gray-900 dark:text-white">
-                  Filters & Settings
-                </span>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                >
-                  ✕
-                </button>
+              <div className="flex items-center justify-between px-5 py-4 border-b ... flex-shrink-0 ...">
+                ...header...
               </div>
-              <div className="overflow-y-auto flex-1">
+              <div
+                className="overflow-y-auto flex-1 overscroll-contain"
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+              >
                 <SidebarContent {...sidebarProps} />
               </div>
             </div>
@@ -1090,7 +1085,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
         )}
 
         {/* Main content */}
-        <main className="flex-1 pt-14 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0">
           {/* Stats cards */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {[
