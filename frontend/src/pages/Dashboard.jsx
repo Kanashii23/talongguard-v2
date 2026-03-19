@@ -683,17 +683,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
   useEffect(() => {
     if (sidebarOpen) {
       document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.width = '100%'
     } else {
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
     }
     return () => {
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
     }
   }, [sidebarOpen])
 
@@ -1080,17 +1074,16 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
               onClick={() => setSidebarOpen(false)}
             />
             <div
-              className="lg:hidden fixed left-0 top-0 bottom-0 z-50 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl"
+              className="lg:hidden fixed left-0 top-0 z-50 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl"
               style={{
+                height: '100dvh',
                 animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards',
-                position: 'fixed',
               }}
             >
-              {/* Header - fixed at top */}
+              {/* Header */}
               <div
                 id="sidebar-header"
-                className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }}
+                className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800"
               >
                 <span className="font-display font-bold text-gray-900 dark:text-white">
                   Filters & Settings
@@ -1103,16 +1096,14 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                 </button>
               </div>
 
-              {/* Scroll area - absolutely positioned below header */}
+              {/* Scroll area */}
               <div
+                className="no-scrollbar"
                 style={{
-                  position: 'absolute',
-                  top: '65px',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
+                  height: 'calc(100dvh - 65px)',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
+                  paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)',
                 }}
               >
                 <SidebarContent {...sidebarProps} />
