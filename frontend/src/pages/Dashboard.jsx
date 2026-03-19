@@ -1067,11 +1067,11 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
           <div className="lg:hidden fixed inset-0 z-40 flex" onClick={() => setSidebarOpen(false)}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
             <div
-              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl overflow-y-auto"
+              className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl flex flex-col"
               style={{ animation: 'slideInLeft 0.28s cubic-bezier(0.32,0.72,0,1) forwards' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
                 <span className="font-display font-bold text-gray-900 dark:text-white">
                   Filters & Settings
                 </span>
@@ -1082,13 +1082,15 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
                   ✕
                 </button>
               </div>
-              <SidebarContent {...sidebarProps} />
+              <div className="overflow-y-auto flex-1">
+                <SidebarContent {...sidebarProps} />
+              </div>
             </div>
           </div>
         )}
 
         {/* Main content */}
-        <main className="flex-1 pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
+        <main className="flex-1 pt-14 lg:pt-0 p-3 sm:p-4 lg:p-6 overflow-x-hidden min-w-0 mt-4 sm:mt-6">
           {/* Stats cards */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {[
