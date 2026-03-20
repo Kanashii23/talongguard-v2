@@ -721,6 +721,26 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     })
   }
 
+  function handleSelectDate(date) {
+    setSelectedDate(date)
+    if (!date) return
+    if (activeMapDate) {
+      const [, mun] = activeMapDate.split('||')
+      const normMun = (m) => (m || '').replace(/^(City of |Municipality of )/i, '').trim()
+      const hasData = records.some(
+        (r) => (r.date || '').startsWith(date) && normMun(r.municipality) === mun
+      )
+      if (hasData) {
+        const newKey = `${date}||${mun}`
+        setActiveMapDate(newKey)
+        navigate(`/dashboard/${sessionToHash(date, mun)}`)
+      } else {
+        setActiveMapDate(null)
+        navigate('/dashboard')
+      }
+    }
+  }
+
   const filtered = useMemo(() => {
     let r = records.filter((r) => [...activeFilters].some((k) => (parseInt(r[k]) || 0) > 0))
     if (selectedDate) r = r.filter((r) => (r.date || r.scanned_at || '').startsWith(selectedDate))
@@ -1028,7 +1048,7 @@ export default function Dashboard({ records, setRecords, isLoggedIn, showToast }
     activeFilters,
     toggleFilter,
     selectedDate,
-    setSelectedDate,
+    setSelectedDate: handleSelectDate,
     tileType,
     setTileType,
     activeSessionBrgy,
