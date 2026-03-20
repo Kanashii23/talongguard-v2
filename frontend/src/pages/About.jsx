@@ -1,6 +1,6 @@
 const TECH = [
   { icon: '🤖', name: 'ESP32 Microcontroller', desc: 'Robot locomotion and motor control' },
-  { icon: '🍓', name: 'Raspberry Pi 4 Model B', desc: 'Image processing and AI inference' },
+  { icon: '🍓', name: 'Raspberry Pi 5', desc: 'Image processing and AI inference' },
   { icon: '📷', name: 'Dual Webcams', desc: 'Top-view and middle-view cameras' },
   { icon: '🧠', name: 'Computer Vision / AI', desc: 'Disease classification model' },
   { icon: '🗺️', name: 'Leaflet.js Mapping', desc: 'Real-time GPS disease mapping' },
