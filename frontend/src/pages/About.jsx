@@ -1,3 +1,5 @@
+import React, { useState } from 'react'
+
 const TECH = [
   { icon: '🤖', name: 'ESP32 Microcontroller', desc: 'Robot locomotion and motor control' },
   { icon: '🍓', name: 'Raspberry Pi 5', desc: 'Image processing and AI inference' },
@@ -5,16 +7,67 @@ const TECH = [
   { icon: '🧠', name: 'Computer Vision / AI', desc: 'Disease classification model' },
   { icon: '🗺️', name: 'Leaflet.js Mapping', desc: 'Real-time GPS disease mapping' },
   { icon: '⚛️', name: 'React + Tailwind CSS', desc: 'Modern responsive frontend' },
-  { icon: '🟢', name: 'Node.js + Express', desc: 'Backend API server (coming soon)' },
-  { icon: '💾', name: 'Database Backend', desc: 'Scan history and data persistence' },
+  { icon: '🟢', name: 'Node.js + Express', desc: 'Backend API server' },
+  { icon: '💾', name: 'PostgreSQL (Supabase)', desc: 'Scan history and data persistence' },
 ]
 
 const TEAM = [
-  { name: 'Team Member 1', role: 'Lead Developer', initial: '?' },
-  { name: 'Team Member 2', role: 'Hardware Engineer', initial: '?' },
-  { name: 'Team Member 3', role: 'AI / ML Engineer', initial: '?' },
-  { name: 'Team Member 4', role: 'Data Analyst', initial: '?' },
+  {
+    name: 'Owen M. Espiritu',
+    role: 'Project Lead, Web Developer & Software Engineer',
+    initial: 'O',
+    image: '/team/owen.png',
+    gradient: 'from-forest-600 to-eggplant-700',
+  },
+  {
+    name: 'Paul Andre N. Lozada',
+    role: 'Research & Documentation',
+    initial: 'P',
+    image: '/team/paul.png',
+    gradient: 'from-blue-500 to-indigo-600',
+  },
+  {
+    name: 'Jordan S. Pangilinan',
+    role: 'Research, Documentation & Hardware Assembly',
+    initial: 'J',
+    image: '/team/jordan.png',
+    gradient: 'from-orange-500 to-red-600',
+  },
+  {
+    name: 'Justine S. Soliman',
+    role: 'Research, Documentation & Hardware Assembly',
+    initial: 'J',
+    image: '/team/justine.png',
+    gradient: 'from-purple-500 to-violet-600',
+  },
 ]
+
+function TeamCard({ name, role, initial, image, gradient }) {
+  const [errored, setErrored] = useState(false) // ✅ now works
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-3xl p-7 text-center border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+      <div className="mx-auto mb-4 w-24 h-24 rounded-2xl overflow-hidden shadow-md">
+        {!errored ? (
+          <img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover"
+            onError={() => setErrored(true)}
+          />
+        ) : (
+          <div
+            className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center text-3xl font-bold text-white`}
+          >
+            {initial}
+          </div>
+        )}
+      </div>
+      <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">{name}</h3>
+      <p className="text-gray-400 text-xs leading-relaxed">{role}</p>
+    </div>
+  )
+}
 
 export default function About() {
   return (
@@ -62,26 +115,10 @@ export default function About() {
           <p className="text-gray-400 text-sm mt-3">The minds behind TalongGuard</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {TEAM.map(({ name, role, initial }) => (
-            <div
-              key={name}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-7 text-center border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-            >
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-forest-600 to-eggplant-700 flex items-center justify-center text-3xl font-bold font-display text-white mx-auto mb-4 shadow-md">
-                {initial}
-              </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">{name}</h3>
-              <p className="text-gray-400 text-xs">{role}</p>
-            </div>
+          {TEAM.map((member) => (
+            <TeamCard key={member.name} {...member} />
           ))}
         </div>
-        <p className="text-center text-gray-400 text-xs mt-5">
-          📌 Update{' '}
-          <code className="bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-xs">
-            frontend/src/pages/About.jsx
-          </code>{' '}
-          with real team names and roles
-        </p>
       </section>
 
       {/* Tech Stack */}
